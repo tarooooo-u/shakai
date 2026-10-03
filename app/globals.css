@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f3ec;
+  --surface: #ffffff;
+  --surface-2: #efebe2;
+  --ink: #1f2933;
+  --muted: #69707a;
+  --line: #e2dccf;
+  --accent: #2f4f86;
+  --accent-ink: #ffffff;
+  --ok: #2e7d4f;
+  --unsure: #b7791f;
+  --ng: #c2412d;
+  --note: #fff6dc;
+  --note-ink: #7a5300;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c;
+    --surface: #1d2229;
+    --surface-2: #262c35;
+    --ink: #e9e6e0;
+    --muted: #9ba2ac;
+    --line: #313843;
+    --accent: #8fb1ea;
+    --accent-ink: #10141a;
+    --ok: #5cc38a;
+    --unsure: #e2b04d;
+    --ng: #ef7d6b;
+    --note: #3a3220;
+    --note-ink: #f0d590;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-unsure: var(--unsure);
+  --color-ng: var(--ng);
+  --color-note: var(--note);
+  --color-note-ink: var(--note-ink);
+  --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI",
+    Meiryo, system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
