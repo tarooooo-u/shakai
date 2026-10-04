@@ -10,7 +10,8 @@
     "build": "next build",
     "lint": "eslint",
     "stats": "node scripts/update-stats.mjs",
-    "climate": "node scripts/update-climate.mjs"
+    "climate": "node scripts/update-climate.mjs",
+    "images": "node scripts/fetch-images.mjs"
   },
   "dependencies": {
     "next": "16.3.8",
@@ -26,6 +27,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "fflate": "^0.8.3",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

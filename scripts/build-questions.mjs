@@ -8,7 +8,22 @@ import { parse } from "csv-parse/sync";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DIR = join(ROOT, "content", "questions");
 const OUT = join(ROOT, "data", "questions.generated.json");
+const IMAGES_OUT = join(ROOT, "data", "images.generated.json");
 const UNITS = JSON.parse(readFileSync(join(ROOT, "content", "units.json"), "utf8"));
+
+// 問題用の画像（content/images.csv：npm run images で Wikimedia Commons から取得）
+const IMAGES = new Map();
+{
+  const [, ...rows] = parse(readFileSync(join(ROOT, "content", "images.csv"), "utf8"), { bom: true });
+  for (const [name, src, kind, file, artist, license, url] of rows) {
+    const who = artist.length > 40 ? artist.slice(0, 40) + "…" : artist;
+    IMAGES.set(name, { src, kind, file, artist, license, url, credit: `${who}（${license}）` });
+  }
+}
+const pic = (name) => {
+  const i = IMAGES.get(name);
+  return i && { src: i.src, credit: i.credit };
+};
 
 // 雨温図用の平年値（content/climate/normals.csv、1行目は出典のコメント）
 const CLIMATE = new Map();
@@ -85,6 +100,20 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       if (!climate) err(`雨温図の地点番号「${r.画像.slice(8)}」が content/climate/normals.csv にありません`);
     }
 
+    // 画像列：「img:名前」→ その画像を表示、「choices」→ 答えと誤答選択肢を画像で並べる
+    let image;
+    let imageChoices;
+    if (r.画像.startsWith("img:")) {
+      image = pic(r.画像.slice(4));
+      if (!image) err(`画像「${r.画像.slice(4)}」が content/images.csv にありません`);
+    } else if (r.画像 === "choices") {
+      const names = [r.答え, ...list(r.誤答選択肢)];
+      const missing = names.filter((n) => !IMAGES.has(n));
+      if (names.length < 4) err("画像で選ぶ問題は誤答選択肢が3つ以上必要です");
+      if (missing.length) err(`画像がない選択肢：${missing.join("、")}`);
+      else imageChoices = Object.fromEntries(names.map((n) => [n, pic(n)]));
+    }
+
     let map;
     if (r.地図) {
       const m = r.地図.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
@@ -107,7 +136,9 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       explanation: r.解説,
       ...(r.漢字注意 && { kanjiNote: r.漢字注意 }),
       tags: list(r.タグ),
-      ...(r.画像 && !climate && { imageUrl: r.画像 }),
+      ...(r.画像 && !climate && !image && !imageChoices && { imageUrl: r.画像 }),
+      ...(image && { imageUrl: image.src, imageCredit: image.credit }),
+      ...(imageChoices && { imageChoices }),
       ...(climate && { climate }),
       ...(map && { map }),
       ...(r.出典メモ && { source: r.出典メモ }),
@@ -124,6 +155,7 @@ if (errors.length) {
 }
 
 writeFileSync(OUT, JSON.stringify(questions, null, 1) + "\n");
+writeFileSync(IMAGES_OUT, JSON.stringify([...IMAGES.entries()].map(([name, i]) => ({ name, ...i })), null, 1) + "\n");
 const count = (c) => questions.filter((q) => q.category === c).length;
 console.log(
   `問題データ OK: ${questions.length}問（歴史 ${count("history")} / 地理 ${count("geography")} / 公民 ${count("civics")}）`,

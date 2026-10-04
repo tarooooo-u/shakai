@@ -130,11 +130,50 @@ export default function Quiz({
         {q.climate && <RainTempChart climate={q.climate} />}
 
         {q.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- 画像は外部URLも許すため <img> を使う
-          <img src={q.imageUrl} alt="" className="mx-auto max-h-80 rounded-xl border border-line" />
+          <figure className="space-y-1">
+            {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
+            <img src={q.imageUrl} alt="問題の画像" loading="lazy" className="mx-auto max-h-80 rounded-xl border border-line" />
+            {q.imageCredit && <figcaption className="text-center text-[11px] text-muted">{q.imageCredit}</figcaption>}
+          </figure>
         )}
 
-        {options && (
+        {options && q.imageChoices && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {options.map((o, i) => {
+              const state = !revealed
+                ? "border-line hover:border-accent/60"
+                : o === q.answer
+                  ? "border-ok ring-2 ring-ok"
+                  : o === picked
+                    ? "border-ng ring-2 ring-ng"
+                    : "border-line opacity-50";
+              return (
+                <button
+                  key={o}
+                  type="button"
+                  disabled={revealed}
+                  onClick={() => pick(o)}
+                  aria-label={revealed ? o : `選択肢${i + 1}`}
+                  className={`relative overflow-hidden rounded-2xl border-2 bg-surface p-1.5 text-left transition-colors ${state}`}
+                >
+                  <span className="absolute top-2 left-2 z-10 flex size-6 items-center justify-center rounded-full bg-ink/70 text-xs font-bold text-white">
+                    {i + 1}
+                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
+                  <img src={q.imageChoices![o].src} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-xl object-contain bg-surface-2" />
+                  {revealed && (
+                    <span className="mt-1 block text-center text-sm font-bold">
+                      {o}
+                      <span className="block text-[10px] font-normal text-muted">{q.imageChoices![o].credit}</span>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {options && !q.imageChoices && (
           <div className="grid gap-2 sm:grid-cols-2">
             {options.map((o, i) => {
               const state = !revealed

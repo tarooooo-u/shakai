@@ -50,3 +50,13 @@ Cloudflare ダッシュボード → Workers & Pages → Pages → Git に接続
 
 `npm run climate` で気象庁の2020年平年値をダウンロードし、各気象台の月平均気温・月降水量を `content/climate/normals.csv` に保存する。
 問題CSVの「画像」列に `climate:地点番号`（例：`climate:47662` は東京）と書くと、その地点の雨温図を表示する。
+
+## 問題用の画像（Wikimedia Commons）
+
+`npm run images` で `scripts/fetch-images.mjs` の SUBJECTS にある画像を Wikimedia Commons から取得し、
+長い辺 480px 以内の WebP にして `public/images/q/` に保存、作者・ライセンスを `content/images.csv` に書く。
+使うのはパブリックドメイン／CC0／CC BY／CC BY-SA のみ（それ以外は自動でスキップ）。出典はアプリの「画像・データの出典」に表示される。
+
+問題CSVの「画像」列：
+- `img:名前` … その画像を問題に表示（例：写真を見て「この建物は？」）
+- `choices` … 答えと誤答選択肢を画像で並べる4択（例：「法隆寺はどれか」）。選択肢すべてに画像が必要

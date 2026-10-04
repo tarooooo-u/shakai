@@ -11,6 +11,7 @@ import QuestionList from "./QuestionList";
 import Quiz from "./Quiz";
 import Result from "./Result";
 import Sidebar, { THEMES, type Page } from "./Sidebar";
+import Credits from "./Credits";
 import TopicPage from "./TopicPage";
 
 export type Session = {
@@ -56,8 +57,13 @@ export default function App() {
   };
   const start = (ids: string[], style: Style) => {
     if (ids.length === 0) return;
-    const choices =
-      style === "choice" ? Object.fromEntries(ids.map((id) => [id, buildChoices(QUESTION_BY_ID.get(id)!)])) : {};
+    // 4択のときは全問、カードのときも画像で選ぶ問題だけは選択肢を用意する
+    const choices = Object.fromEntries(
+      ids
+        .map((id) => QUESTION_BY_ID.get(id)!)
+        .filter((q) => style === "choice" || q.imageChoices)
+        .map((q) => [q.id, buildChoices(q)]),
+    );
     setRunKey((k) => k + 1);
     show({ kind: "quiz", session: { ids, style, choices } });
   };
@@ -148,6 +154,8 @@ export default function App() {
           />
         );
       }
+      case "credits":
+        return <Credits />;
       case "all":
         return (
           <QuestionList

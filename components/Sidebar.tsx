@@ -13,7 +13,8 @@ export type Page =
   | { kind: "review" }
   | { kind: "category"; category: Category }
   | { kind: "theme"; tag: string }
-  | { kind: "all" };
+  | { kind: "all" }
+  | { kind: "credits" };
 
 /** テーマ：タグで分野をまたいで問題を集める（問題が1つもないテーマは出さない） */
 export const THEMES = [
@@ -21,6 +22,7 @@ export const THEMES = [
   { tag: "白地図", label: "白地図", mark: "白" },
   { tag: "雨温図", label: "雨温図", mark: "雨" },
   { tag: "人物", label: "人物", mark: "人" },
+  { tag: "写真", label: "写真・絵で答える", mark: "写" },
 ].filter((t) => QUESTIONS.some((q) => q.tags.includes(t.tag)));
 
 const CATEGORY_MARK: Record<Category, string> = { history: "歴", geography: "地", civics: "公" };
@@ -164,6 +166,7 @@ export default function Sidebar({
 
       <Heading collapsed={collapsed}>おうちの人</Heading>
       <Item {...nav} to={{ kind: "all" }} mark="≡" label="問題と答えの一覧" />
+      <Item {...nav} to={{ kind: "credits" }} mark="©" label="画像・データの出典" />
     </nav>
   );
 }

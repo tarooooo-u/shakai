@@ -103,6 +103,15 @@ export default function QuestionList({
                           <span className="w-5 shrink-0 text-xl">{r ? <GradeMark grade={r.grade} /> : null}</span>
                           <span className="min-w-0 flex-1 space-y-1">
                             <span className="block text-sm leading-relaxed">{q.question}</span>
+                            {(q.imageUrl || q.imageChoices) && (
+                              // eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない
+                              <img
+                                src={q.imageUrl ?? q.imageChoices![q.answer].src}
+                                alt=""
+                                loading="lazy"
+                                className="block h-24 w-auto rounded-lg border border-line"
+                              />
+                            )}
                             {q.climate && (
                               <span className="block max-w-xs">
                                 <RainTempChart climate={q.climate} />

@@ -88,6 +88,11 @@ export function shuffle<T>(items: T[]): T[] {
 
 /** 4択の選択肢（正解＋誤答3つ）。誤答が足りない問題は null（カードで出す） */
 export function buildChoices(q: Question): string[] | null {
+  // 画像で選ぶ問題は、画像がそろっている選択肢から出す
+  if (q.imageChoices) {
+    const wrong = Object.keys(q.imageChoices).filter((k) => k !== q.answer);
+    return shuffle([q.answer, ...shuffle(wrong).slice(0, 3)]);
+  }
   if (q.choices.length < 3) return null;
   return shuffle([q.answer, ...shuffle(q.choices).slice(0, 3)]);
 }
