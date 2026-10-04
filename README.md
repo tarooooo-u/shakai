@@ -39,3 +39,9 @@ Cloudflare ダッシュボード → Workers & Pages → Pages → Git に接続
 - 出力ディレクトリ：`out`
 
 以後は push するたびに自動で公開される。
+
+## 統計データ（e-Stat）
+
+`npm run stats` で e-Stat API から生産量・漁港別出荷量のランキングを取得し、`content/stats/rankings.csv` に保存する（出典・年つき）。
+アプリIDは `.env.local` の `ESTAT_APP_ID`（見本は `.env.example`）。新しい年の統計が出たら `scripts/update-stats.mjs` の表ID・年を差し替える。
+表の探し方：`node scripts/estat.mjs search <語>` ／ `node scripts/estat.mjs meta <表ID>`

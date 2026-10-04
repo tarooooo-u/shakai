@@ -8,7 +8,8 @@
     "dev": "next dev",
     "prebuild": "npm run questions",
     "build": "next build",
-    "lint": "eslint"
+    "lint": "eslint",
+    "stats": "node scripts/update-stats.mjs"
   },
   "dependencies": {
     "next": "16.3.8",

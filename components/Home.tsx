@@ -340,6 +340,9 @@ export default function Home({
         >
           学習記録をリセット
         </button>
+        <p className="w-full text-[11px] leading-relaxed text-muted">
+          統計データの一部は、政府統計総合窓口(e-Stat)のAPI機能を使用して取得しています。サービスの内容は国によって保証されたものではありません。
+        </p>
       </footer>
     </div>
   );
