@@ -30,6 +30,12 @@
 - PDF やページ画像はリポジトリに置かない（作業用フォルダで処理し、終わったら削除）
 - 取り込んだ用語は `private/スキャン取り込み記録.csv`（git 管理外）に追記する：テキスト番号・テキスト名・取り込み日・用語・扱い（新規追加／既存）・問題ID
 
+### 「どこまでスキャンした？」と聞かれたら
+
+`private/スキャン取り込み記録.csv` の「テキスト番号」列を集計して答える（テキストごとの番号・名前・取り込み日・新規追加数・既存数）。
+例：`python -c "import csv,collections;r=list(csv.DictReader(open('private/スキャン取り込み記録.csv',encoding='utf-8-sig')));c=collections.Counter((x['テキスト番号'],x['テキスト名'],x['取り込み日'],x['扱い'][:2]) for x in r);[print(k,v) for k,v in sorted(c.items())]"`
+テキストはデイリーサピックス社会（6年）の「640-xx」。番号の抜け（まだ受け取っていない号）もあわせて伝える。
+
 ## 画像
 
 - 問題用の画像は Wikimedia Commons から `npm run images` で取得（パブリックドメイン／CC0／CC BY／CC BY-SA のみ）。塾教材や検索で見つけただけの画像は使わない
