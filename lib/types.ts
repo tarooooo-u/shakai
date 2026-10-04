@@ -32,6 +32,8 @@ export type Question = {
   /** 地図・雨温図・人物写真など（public/ 以下のパスか URL） */
   imageUrl?: string;
   map?: { lat: number; lng: number };
+  /** 雨温図（気象庁の平年値）。月別の平均気温℃・降水量mm */
+  climate?: { temp: number[]; tempYear: number; precip: number[]; precipYear: number };
   /** 統計の年・出典など */
   source?: string;
   /** 保護者が内容を確認済みか */

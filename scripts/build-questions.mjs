@@ -10,6 +10,17 @@ const DIR = join(ROOT, "content", "questions");
 const OUT = join(ROOT, "data", "questions.generated.json");
 const UNITS = JSON.parse(readFileSync(join(ROOT, "content", "units.json"), "utf8"));
 
+// 雨温図用の平年値（content/climate/normals.csv、1行目は出典のコメント）
+const CLIMATE = new Map();
+{
+  const text = readFileSync(join(ROOT, "content", "climate", "normals.csv"), "utf8");
+  const [, ...rows] = parse(text, { bom: true, relax_column_count: true, from_line: 2 });
+  for (const r of rows) {
+    const n = r.slice(4).map(Number);
+    CLIMATE.set(r[0], { temp: n.slice(0, 12), tempYear: n[12], precip: n.slice(13, 25), precipYear: n[25] });
+  }
+}
+
 const HEADER = ["id", "単元", "都道府県", "分類", "難易度", "学年", "問題", "答え", "別解", "誤答選択肢", "解説", "漢字注意", "タグ", "画像", "地図", "出典メモ", "確認"];
 const FILES = { history: "h", geography: "g", civics: "c" };
 const PREFECTURES = [
@@ -67,6 +78,13 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
     if (choices.includes(r.答え)) err("誤答選択肢に正解が入っています");
     if (new Set(choices).size !== choices.length) err("誤答選択肢が重複しています");
 
+    // 画像列が「climate:地点番号」なら雨温図を表示する
+    let climate;
+    if (r.画像.startsWith("climate:")) {
+      climate = CLIMATE.get(r.画像.slice(8));
+      if (!climate) err(`雨温図の地点番号「${r.画像.slice(8)}」が content/climate/normals.csv にありません`);
+    }
+
     let map;
     if (r.地図) {
       const m = r.地図.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
@@ -89,7 +107,8 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       explanation: r.解説,
       ...(r.漢字注意 && { kanjiNote: r.漢字注意 }),
       tags: list(r.タグ),
-      ...(r.画像 && { imageUrl: r.画像 }),
+      ...(r.画像 && !climate && { imageUrl: r.画像 }),
+      ...(climate && { climate }),
       ...(map && { map }),
       ...(r.出典メモ && { source: r.出典メモ }),
       checked: r.確認 === "済",

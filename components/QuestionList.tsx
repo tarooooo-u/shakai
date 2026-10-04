@@ -5,6 +5,7 @@ import { QUESTION_BY_ID } from "@/data";
 import type { Progress } from "@/lib/progress";
 import { shuffle } from "@/lib/session";
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/types";
+import RainTempChart from "./RainTempChart";
 import { DifficultyBadge, GradeMark } from "./ui";
 
 /** 問題と答えの一覧。保護者が口頭で出題したり、要復習を見直したりする用 */
@@ -97,6 +98,11 @@ export default function QuestionList({
                           <span className="w-5 shrink-0 text-xl">{r ? <GradeMark grade={r.grade} /> : null}</span>
                           <span className="flex-1 space-y-1">
                             <span className="block text-sm leading-relaxed">{q.question}</span>
+                            {q.climate && (
+                              <span className="block max-w-xs">
+                                <RainTempChart climate={q.climate} />
+                              </span>
+                            )}
                             {open ? (
                               <span className="block font-bold text-accent">{q.answer}</span>
                             ) : (

@@ -5,6 +5,7 @@ import { QUESTION_BY_ID } from "@/data";
 import { recordGrade } from "@/lib/progress";
 import type { Grade, Question } from "@/lib/types";
 import type { Session } from "./App";
+import RainTempChart from "./RainTempChart";
 import { CategoryBadge, DifficultyBadge, GRADE_META } from "./ui";
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
@@ -119,6 +120,8 @@ export default function Quiz({
         </div>
 
         <p className="text-lg leading-relaxed font-semibold sm:text-xl">{q.question}</p>
+
+        {q.climate && <RainTempChart climate={q.climate} />}
 
         {q.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- 画像は外部URLも許すため <img> を使う

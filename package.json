@@ -9,7 +9,8 @@
     "prebuild": "npm run questions",
     "build": "next build",
     "lint": "eslint",
-    "stats": "node scripts/update-stats.mjs"
+    "stats": "node scripts/update-stats.mjs",
+    "climate": "node scripts/update-climate.mjs"
   },
   "dependencies": {
     "next": "16.3.8",
@@ -24,6 +25,7 @@
     "csv-parse": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "fflate": "^0.8.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

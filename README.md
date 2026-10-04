@@ -45,3 +45,8 @@ Cloudflare ダッシュボード → Workers & Pages → Pages → Git に接続
 `npm run stats` で e-Stat API から生産量・漁港別出荷量のランキングを取得し、`content/stats/rankings.csv` に保存する（出典・年つき）。
 アプリIDは `.env.local` の `ESTAT_APP_ID`（見本は `.env.example`）。新しい年の統計が出たら `scripts/update-stats.mjs` の表ID・年を差し替える。
 表の探し方：`node scripts/estat.mjs search <語>` ／ `node scripts/estat.mjs meta <表ID>`
+
+## 雨温図（気象庁）
+
+`npm run climate` で気象庁の2020年平年値をダウンロードし、各気象台の月平均気温・月降水量を `content/climate/normals.csv` に保存する。
+問題CSVの「画像」列に `climate:地点番号`（例：`climate:47662` は東京）と書くと、その地点の雨温図を表示する。
