@@ -74,3 +74,26 @@ export function Section({ title, children }: { title: string; children: ReactNod
     </section>
   );
 }
+
+export function SmallChip({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`min-h-9 rounded-lg border px-2.5 text-xs font-semibold transition-colors ${
+        selected ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface text-ink hover:border-accent/60"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}

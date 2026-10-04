@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { QUESTION_BY_ID } from "@/data";
 import { recordGrade } from "@/lib/progress";
-import type { Grade } from "@/lib/types";
+import type { Grade, Question } from "@/lib/types";
+import type { Session } from "./App";
 import { CategoryBadge, DifficultyBadge, GRADE_META } from "./ui";
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
@@ -15,17 +16,22 @@ const GRADE_BUTTON: Record<Grade, string> = {
 };
 
 export default function Quiz({
-  ids,
+  session,
   onFinish,
 }: {
-  ids: string[];
+  session: Session;
   onFinish: (results: Record<string, Grade>) => void;
 }) {
+  const { ids } = session;
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  // 4択で選んだ選択肢
+  const [picked, setPicked] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, Grade>>({});
 
   const q = QUESTION_BY_ID.get(ids[index])!;
+  const options = session.choices[q.id] ?? null;
+  const correct = picked === q.answer;
 
   const grade = useCallback(
     (g: Grade) => {
@@ -37,30 +43,51 @@ export default function Quiz({
       } else {
         setIndex(index + 1);
         setRevealed(false);
+        setPicked(null);
       }
     },
     [q.id, results, index, ids.length, onFinish],
   );
 
-  // キーボード操作: Space/Enter で答え、1/2/3 で 〇/△/×、Esc で終了
+  const pick = useCallback(
+    (option: string) => {
+      setPicked(option);
+      setRevealed(true);
+    },
+    [],
+  );
+
+  // キーボード操作
+  //   カード: Space/Enter で答え → 1/2/3 で 〇/△/×
+  //   4択:    1〜4 で選ぶ → Enter で次へ（正解なら 2 で「まぐれ」）
+  //   Esc で終了
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (!revealed && (e.key === " " || e.key === "Enter")) {
-        e.preventDefault();
-        setRevealed(true);
-      } else if (revealed) {
+      if (e.key === "Escape") return onFinish(results);
+      const enter = e.key === " " || e.key === "Enter";
+      let handled = true;
+      if (options && !revealed) {
+        const i = Number(e.key) - 1;
+        if (i >= 0 && i < options.length) pick(options[i]);
+        else handled = false;
+      } else if (options) {
+        if (enter) grade(correct ? "ok" : "ng");
+        else if (correct && e.key === "2") grade("unsure");
+        else handled = false;
+      } else if (!revealed) {
+        if (enter) setRevealed(true);
+        else handled = false;
+      } else {
         const g = GRADES.find((x) => GRADE_META[x].key === e.key);
-        if (g) {
-          e.preventDefault();
-          grade(g);
-        }
+        if (g) grade(g);
+        else handled = false;
       }
-      if (e.key === "Escape") onFinish(results);
+      if (handled) e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [revealed, grade, onFinish, results]);
+  }, [options, revealed, correct, pick, grade, onFinish, results]);
 
   return (
     <div className="space-y-4">
@@ -87,7 +114,7 @@ export default function Quiz({
       {/* 問題カード */}
       <article className="space-y-5 rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-8">
         <div className="flex flex-wrap gap-2">
-          <CategoryBadge category={q.category} sub={q.subCategory} />
+          <CategoryBadge category={q.category} sub={q.unit} />
           <DifficultyBadge difficulty={q.difficulty} />
         </div>
 
@@ -98,35 +125,49 @@ export default function Quiz({
           <img src={q.imageUrl} alt="" className="mx-auto max-h-80 rounded-xl border border-line" />
         )}
 
-        {revealed ? (
-          <div className="space-y-4 border-t border-line pt-5">
-            <div>
-              <div className="text-xs font-bold tracking-wider text-muted">答え</div>
-              <div className="mt-1 text-2xl font-bold text-accent sm:text-3xl">{q.answer}</div>
-            </div>
-            {q.kanjiNote && (
-              <div className="rounded-xl bg-note px-4 py-3 text-sm text-note-ink">
-                <span className="font-bold">漢字・読み注意　</span>
-                {q.kanjiNote}
-              </div>
-            )}
-            <div>
-              <div className="text-xs font-bold tracking-wider text-muted">解説</div>
-              <p className="mt-1 text-[15px] leading-relaxed">{q.explanation}</p>
-            </div>
+        {options && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {options.map((o, i) => {
+              const state = !revealed
+                ? "border-line hover:border-accent/60"
+                : o === q.answer
+                  ? "border-ok bg-ok/10 text-ok"
+                  : o === picked
+                    ? "border-ng bg-ng/10 text-ng"
+                    : "border-line opacity-50";
+              return (
+                <button
+                  key={o}
+                  type="button"
+                  disabled={revealed}
+                  onClick={() => pick(o)}
+                  className={`flex min-h-14 items-center gap-3 rounded-2xl border-2 bg-surface px-4 py-3 text-left font-semibold transition-colors ${state}`}
+                >
+                  <span className="text-sm text-muted tabular-nums">{i + 1}</span>
+                  <span>{o}</span>
+                </button>
+              );
+            })}
           </div>
+        )}
+
+        {revealed ? (
+          <Explanation q={q} verdict={options ? (correct ? "正解！" : "ざんねん") : undefined} />
         ) : (
-          <button
-            type="button"
-            onClick={() => setRevealed(true)}
-            className="min-h-14 w-full rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90"
-          >
-            答えを見る
-          </button>
+          !options && (
+            <button
+              type="button"
+              onClick={() => setRevealed(true)}
+              className="min-h-14 w-full rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90"
+            >
+              答えを見る
+            </button>
+          )
         )}
       </article>
 
-      {revealed && (
+      {/* 採点 */}
+      {revealed && !options && (
         <div className="grid grid-cols-3 gap-2.5">
           {GRADES.map((g) => (
             <button
@@ -141,10 +182,57 @@ export default function Quiz({
           ))}
         </div>
       )}
+      {revealed && options && (
+        <div className={`grid gap-2.5 ${correct ? "grid-cols-2" : "grid-cols-1"}`}>
+          <button
+            type="button"
+            onClick={() => grade(correct ? "ok" : "ng")}
+            className="min-h-16 rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90"
+          >
+            次へ
+          </button>
+          {correct && (
+            <button
+              type="button"
+              onClick={() => grade("unsure")}
+              className={`min-h-16 rounded-2xl border-2 bg-surface font-bold transition-colors ${GRADE_BUTTON.unsure}`}
+            >
+              △ まぐれだった
+            </button>
+          )}
+        </div>
+      )}
 
       <p className="hidden text-center text-xs text-muted sm:block">
-        キーボード：Space で答え ／ 1・2・3 で 〇・△・× ／ Esc で終了
+        {options
+          ? "キーボード：1〜4 で選ぶ ／ Enter で次へ（正解のとき 2 で「まぐれ」） ／ Esc で終了"
+          : "キーボード：Space で答え ／ 1・2・3 で 〇・△・× ／ Esc で終了"}
       </p>
+    </div>
+  );
+}
+
+function Explanation({ q, verdict }: { q: Question; verdict?: string }) {
+  return (
+    <div className="space-y-4 border-t border-line pt-5">
+      <div>
+        <div className="text-xs font-bold tracking-wider text-muted">{verdict ?? "答え"}</div>
+        <div className="mt-1 text-2xl font-bold text-accent sm:text-3xl">{q.answer}</div>
+        {q.altAnswers.length > 0 && (
+          <div className="mt-1 text-sm text-muted">別解：{q.altAnswers.join("／")}</div>
+        )}
+      </div>
+      {q.kanjiNote && (
+        <div className="rounded-xl bg-note px-4 py-3 text-sm text-note-ink">
+          <span className="font-bold">漢字・読み注意　</span>
+          {q.kanjiNote}
+        </div>
+      )}
+      <div>
+        <div className="text-xs font-bold tracking-wider text-muted">解説</div>
+        <p className="mt-1 text-[15px] leading-relaxed">{q.explanation}</p>
+        {q.source && !q.source.startsWith("要確認") && <p className="mt-2 text-xs text-muted">出典：{q.source}</p>}
+      </div>
     </div>
   );
 }

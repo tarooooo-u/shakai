@@ -42,3 +42,10 @@ next-env.d.ts
 
 # claude code
 .claude/settings.local.json
+
+# generated from content/questions/*.csv
+/data/questions.generated.json
+
+# raw question notes (may include photos of cram-school material)
+/content/inbox/*
+!/content/inbox/README.md

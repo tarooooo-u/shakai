@@ -1,24 +1,38 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { QUESTIONS } from "@/data";
 import { needsReview, resetProgress, type Progress } from "@/lib/progress";
-import { MODE_LABEL, pickQuestions, shuffle, type Filter, type Mode } from "@/lib/session";
 import {
-  CATEGORIES,
-  CATEGORY_LABEL,
-  DIFFICULTIES,
-  DIFFICULTY_LABEL,
-  type Category,
-  type Difficulty,
-} from "@/lib/types";
-import { Chip, Section } from "./ui";
+  DEFAULT_FILTER,
+  MODE_LABEL,
+  STYLE_LABEL,
+  filterFromQuery,
+  filterToQuery,
+  matches,
+  pickQuestions,
+  shuffle,
+  type Filter,
+  type Mode,
+  type Style,
+} from "@/lib/session";
+import { CATEGORIES, CATEGORY_LABEL, DIFFICULTIES, DIFFICULTY_LABEL, UNITS, type Category } from "@/lib/types";
+import { Chip, Section, SmallChip } from "./ui";
 
-const COUNTS = [10, 20, 50, 0];
+const COUNTS = [7, 10, 20, 50, 0];
 
 function toggle<T>(list: T[], item: T): T[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
+
+function countBy(key: (q: (typeof QUESTIONS)[number]) => string[]) {
+  const m = new Map<string, number>();
+  for (const q of QUESTIONS) for (const k of key(q)) m.set(k, (m.get(k) ?? 0) + 1);
+  return m;
+}
+const UNIT_COUNT = countBy((q) => [q.unit]);
+const TAG_COUNT = [...countBy((q) => q.tags)].sort((a, b) => b[1] - a[1]);
 
 export default function Home({
   progress,
@@ -26,16 +40,18 @@ export default function Home({
   onOpenList,
 }: {
   progress: Progress;
-  onStart: (ids: string[]) => void;
-  onOpenList: () => void;
+  onStart: (ids: string[], style: Style) => void;
+  onOpenList: (title: string, ids: string[]) => void;
 }) {
-  const [filter, setFilter] = useState<Filter>({
-    categories: [...CATEGORIES],
-    difficulties: [...DIFFICULTIES],
-    mode: "all",
-    count: 10,
-    shuffle: true,
-  });
+  const params = useSearchParams();
+  // 保護者が送った URL（?u=江戸&n=7 など）で開いたときはその条件を初期値にする
+  const [linked] = useState(() => filterFromQuery(new URLSearchParams(params.toString())));
+  const [filter, setFilter] = useState<Filter>(linked ?? DEFAULT_FILTER);
+  const [copied, setCopied] = useState(false);
+  const set = (patch: Partial<Filter>) => {
+    setFilter({ ...filter, ...patch });
+    setCopied(false);
+  };
 
   const stats = useMemo(() => {
     const byCategory = Object.fromEntries(
@@ -55,20 +71,43 @@ export default function Home({
     return { byCategory, seen, review, ok };
   }, [progress]);
 
-  const matched = useMemo(
-    () => pickQuestions(QUESTIONS, { ...filter, count: 0, shuffle: false }, progress).length,
-    [filter, progress],
-  );
-  const willAsk = filter.count > 0 ? Math.min(filter.count, matched) : matched;
-
+  const matched = useMemo(() => QUESTIONS.filter((q) => matches(filter, q, progress)), [filter, progress]);
+  const willAsk = filter.count > 0 ? Math.min(filter.count, matched.length) : matched.length;
   const reviewIds = QUESTIONS.filter((q) => needsReview(progress[q.id])).map((q) => q.id);
+  const startFiltered = () => onStart(pickQuestions(QUESTIONS, filter, progress), filter.style);
+
+  const copyLink = async () => {
+    const query = filterToQuery(filter);
+    const url = `${window.location.origin}${window.location.pathname}${query ? `?${query}` : ""}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      window.prompt("このURLをコピーして送ってください", url);
+    }
+  };
 
   return (
     <div className="space-y-7">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold sm:text-3xl">社会ドリル</h1>
-        <p className="text-sm text-muted">中学受験 社会の一問一答。答えを見て、〇△×で自己採点。</p>
+        <p className="text-sm text-muted">中学受験 社会の一問一答。答えを見て〇△×で自己採点、または4択で。</p>
       </header>
+
+      {linked && (
+        <div className="rounded-2xl border-2 border-accent/50 bg-accent/10 p-4">
+          <p className="text-sm font-bold">おうちの人が選んだ範囲です</p>
+          <p className="mt-1 text-xs text-muted">{describe(linked)}</p>
+          <button
+            type="button"
+            disabled={willAsk === 0}
+            onClick={startFiltered}
+            className="mt-3 min-h-12 w-full rounded-xl bg-accent font-bold text-accent-ink disabled:opacity-40"
+          >
+            {willAsk === 0 ? "条件に合う問題がありません" : `${willAsk}問 スタート`}
+          </button>
+        </div>
+      )}
 
       {/* 全体の進み具合 */}
       <div className="grid grid-cols-3 gap-2.5">
@@ -81,16 +120,16 @@ export default function Home({
       <div className="grid gap-2.5 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => onStart(shuffle(QUESTIONS).slice(0, 10).map((q) => q.id))}
+          onClick={() => onStart(shuffle(QUESTIONS).slice(0, 7).map((q) => q.id), "card")}
           className="min-h-16 rounded-2xl bg-accent px-5 py-4 text-left text-accent-ink shadow-sm transition-opacity hover:opacity-90"
         >
-          <div className="text-lg font-bold">サクッと10問</div>
+          <div className="text-lg font-bold">サクッと7問</div>
           <div className="text-xs opacity-80">全分野からランダム</div>
         </button>
         <button
           type="button"
           disabled={reviewIds.length === 0}
-          onClick={() => onStart(shuffle(reviewIds))}
+          onClick={() => onStart(shuffle(reviewIds), "card")}
           className="min-h-16 rounded-2xl border-2 border-ng/60 bg-surface px-5 py-4 text-left transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:border-line disabled:opacity-60"
         >
           <div className="text-lg font-bold text-ng">要復習をやり直す</div>
@@ -105,7 +144,7 @@ export default function Home({
         <h2 className="text-base font-bold">条件を選んで演習</h2>
 
         <Section title="分野">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-3 gap-2">
             {CATEGORIES.map((c) => {
               const s = stats.byCategory[c];
               const selected = filter.categories.includes(c);
@@ -114,12 +153,18 @@ export default function Home({
                   key={c}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => setFilter({ ...filter, categories: toggle(filter.categories, c) })}
+                  onClick={() =>
+                    set({
+                      categories: toggle(filter.categories, c),
+                      // 外した分野の単元選択は消す
+                      units: selected ? filter.units.filter((u) => !UNITS[c].includes(u)) : filter.units,
+                    })
+                  }
                   className={`rounded-xl border p-3 text-left transition-colors ${
                     selected ? "border-accent bg-accent/10" : "border-line bg-surface opacity-60"
                   }`}
                 >
-                  <div className="flex items-baseline justify-between">
+                  <div className="flex items-baseline justify-between gap-1">
                     <span className="font-bold">{CATEGORY_LABEL[c]}</span>
                     <span className="text-xs text-muted">{s.total}問</span>
                   </div>
@@ -138,13 +183,36 @@ export default function Home({
           </div>
         </Section>
 
+        {filter.categories.length > 0 && (
+          <Section title="単元（選ばなければ全部）">
+            <div className="space-y-3">
+              {CATEGORIES.filter((c) => filter.categories.includes(c)).map((c) => (
+                <div key={c} className="flex flex-wrap gap-1.5">
+                  {UNITS[c]
+                    .filter((u) => UNIT_COUNT.has(u))
+                    .map((u) => (
+                      <SmallChip
+                        key={u}
+                        selected={filter.units.includes(u)}
+                        onClick={() => set({ units: toggle(filter.units, u) })}
+                      >
+                        {u}
+                        <span className="ml-1 opacity-60">{UNIT_COUNT.get(u)}</span>
+                      </SmallChip>
+                    ))}
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
         <Section title="難易度">
           <div className="flex flex-wrap gap-2">
-            {DIFFICULTIES.map((d: Difficulty) => (
+            {DIFFICULTIES.map((d) => (
               <Chip
                 key={d}
                 selected={filter.difficulties.includes(d)}
-                onClick={() => setFilter({ ...filter, difficulties: toggle(filter.difficulties, d) })}
+                onClick={() => set({ difficulties: toggle(filter.difficulties, d) })}
               >
                 {DIFFICULTY_LABEL[d]}
               </Chip>
@@ -152,20 +220,46 @@ export default function Home({
           </div>
         </Section>
 
+        {TAG_COUNT.length > 0 && (
+          <Section title="テーマ（選ばなければ全部）">
+            <div className="flex flex-wrap gap-1.5">
+              {TAG_COUNT.map(([t, n]) => (
+                <SmallChip key={t} selected={filter.tags.includes(t)} onClick={() => set({ tags: toggle(filter.tags, t) })}>
+                  {t}
+                  <span className="ml-1 opacity-60">{n}</span>
+                </SmallChip>
+              ))}
+            </div>
+          </Section>
+        )}
+
         <Section title="出題">
           <div className="flex flex-wrap gap-2">
             {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
-              <Chip key={m} selected={filter.mode === m} onClick={() => setFilter({ ...filter, mode: m })}>
+              <Chip key={m} selected={filter.mode === m} onClick={() => set({ mode: m })}>
                 {MODE_LABEL[m]}
               </Chip>
             ))}
           </div>
         </Section>
 
+        <Section title="解き方">
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(STYLE_LABEL) as Style[]).map((s) => (
+              <Chip key={s} selected={filter.style === s} onClick={() => set({ style: s })}>
+                {STYLE_LABEL[s]}
+              </Chip>
+            ))}
+          </div>
+          {filter.style === "choice" && (
+            <p className="text-xs text-muted">選択肢のない問題（「すべて答えよ」など）はカードで出ます。</p>
+          )}
+        </Section>
+
         <Section title="問題数">
           <div className="flex flex-wrap items-center gap-2">
             {COUNTS.map((n) => (
-              <Chip key={n} selected={filter.count === n} onClick={() => setFilter({ ...filter, count: n })}>
+              <Chip key={n} selected={filter.count === n} onClick={() => set({ count: n })}>
                 {n === 0 ? "全部" : `${n}問`}
               </Chip>
             ))}
@@ -174,25 +268,53 @@ export default function Home({
                 type="checkbox"
                 className="size-4 accent-[var(--accent)]"
                 checked={filter.shuffle}
-                onChange={(e) => setFilter({ ...filter, shuffle: e.target.checked })}
+                onChange={(e) => set({ shuffle: e.target.checked })}
               />
               順番をシャッフル
             </label>
           </div>
         </Section>
 
-        <button
-          type="button"
-          disabled={willAsk === 0}
-          onClick={() => onStart(pickQuestions(QUESTIONS, filter, progress))}
-          className="min-h-14 w-full rounded-2xl bg-accent px-5 text-lg font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {willAsk === 0 ? "条件に合う問題がありません" : `${willAsk}問 スタート`}
-        </button>
+        <div className="space-y-2.5">
+          <button
+            type="button"
+            disabled={willAsk === 0}
+            onClick={startFiltered}
+            className="min-h-14 w-full rounded-2xl bg-accent px-5 text-lg font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {willAsk === 0 ? "条件に合う問題がありません" : `${willAsk}問 スタート`}
+          </button>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={matched.length === 0}
+              onClick={() =>
+                onOpenList(
+                  "問題と答えの一覧",
+                  matched.map((q) => q.id),
+                )
+              }
+              className="min-h-12 rounded-2xl border border-line bg-surface px-4 text-sm font-bold transition-colors hover:bg-surface-2 disabled:opacity-40"
+            >
+              一覧で見る（おうちの人が出題）
+            </button>
+            <button
+              type="button"
+              onClick={copyLink}
+              className="min-h-12 rounded-2xl border border-line bg-surface px-4 text-sm font-bold transition-colors hover:bg-surface-2"
+            >
+              {copied ? "✓ URLをコピーしました" : "この条件のURLをコピー"}
+            </button>
+          </div>
+        </div>
       </div>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 pb-4 text-sm">
-        <button type="button" onClick={onOpenList} className="font-semibold text-accent underline-offset-4 hover:underline">
+        <button
+          type="button"
+          onClick={() => onOpenList("要復習リスト", reviewIds)}
+          className="font-semibold text-accent underline-offset-4 hover:underline"
+        >
           要復習リストを見る →
         </button>
         <button
@@ -207,6 +329,20 @@ export default function Home({
       </footer>
     </div>
   );
+}
+
+/** 共有リンクの条件を人が読める形に */
+function describe(f: Filter) {
+  return [
+    f.units.length ? f.units.join("・") : f.categories.map((c) => CATEGORY_LABEL[c]).join("・"),
+    f.difficulties.length !== DIFFICULTIES.length && f.difficulties.map((d) => DIFFICULTY_LABEL[d]).join("・"),
+    f.tags.length > 0 && `テーマ：${f.tags.join("・")}`,
+    f.mode !== "all" && MODE_LABEL[f.mode],
+    STYLE_LABEL[f.style],
+    f.count ? `${f.count}問` : "全部",
+  ]
+    .filter(Boolean)
+    .join(" ／ ");
 }
 
 function Stat({ label, value, total, tone }: { label: string; value: number; total?: number; tone?: string }) {
