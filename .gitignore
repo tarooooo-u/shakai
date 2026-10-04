@@ -51,3 +51,6 @@ next-env.d.ts
 !/content/inbox/README.md
 
 !.env.example
+
+# private notes (scanned-material import log etc.) - never commit
+/private/
