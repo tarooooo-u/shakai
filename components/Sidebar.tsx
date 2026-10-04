@@ -128,7 +128,15 @@ export default function Sidebar({
         >
           {mode === "drawer" ? "✕" : collapsed ? "»" : "«"}
         </button>
-        {!collapsed && <span className="text-base font-bold">社会ドリル</span>}
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={() => onNavigate({ kind: "home" })}
+            className="rounded-lg px-1 text-base font-bold hover:text-accent"
+          >
+            社会ドリル
+          </button>
+        )}
       </div>
 
       <Item {...nav} to={{ kind: "home" }} mark="⌂" label="ホーム" />

@@ -185,7 +185,9 @@ export default function App() {
           >
             ☰
           </button>
-          <span className="font-bold">社会ドリル</span>
+          <button type="button" onClick={() => navigate({ kind: "home" })} className="rounded-lg px-1 font-bold hover:text-accent">
+            社会ドリル
+          </button>
         </div>
         <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8">{content}</main>
       </div>
