@@ -49,3 +49,5 @@ next-env.d.ts
 # raw question notes (may include photos of cram-school material)
 /content/inbox/*
 !/content/inbox/README.md
+
+!.env.example
