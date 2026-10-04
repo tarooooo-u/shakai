@@ -32,6 +32,7 @@ function countBy(key: (q: (typeof QUESTIONS)[number]) => string[]) {
   return m;
 }
 const UNIT_COUNT = countBy((q) => [q.unit]);
+const KIND_COUNT = [...countBy((q) => (q.kind ? [q.kind] : []))];
 const TAG_COUNT = [...countBy((q) => q.tags)].sort((a, b) => b[1] - a[1]);
 
 export default function Home({
@@ -206,6 +207,19 @@ export default function Home({
           </Section>
         )}
 
+        {KIND_COUNT.length > 0 && (
+          <Section title="分類（選ばなければ全部）">
+            <div className="flex flex-wrap gap-1.5">
+              {KIND_COUNT.map(([k, n]) => (
+                <SmallChip key={k} selected={filter.kinds.includes(k)} onClick={() => set({ kinds: toggle(filter.kinds, k) })}>
+                  {k}
+                  <span className="ml-1 opacity-60">{n}</span>
+                </SmallChip>
+              ))}
+            </div>
+          </Section>
+        )}
+
         <Section title="難易度">
           <div className="flex flex-wrap gap-2">
             {DIFFICULTIES.map((d) => (
@@ -335,6 +349,7 @@ export default function Home({
 function describe(f: Filter) {
   return [
     f.units.length ? f.units.join("・") : f.categories.map((c) => CATEGORY_LABEL[c]).join("・"),
+    f.kinds.length > 0 && f.kinds.join("・"),
     f.difficulties.length !== DIFFICULTIES.length && f.difficulties.map((d) => DIFFICULTY_LABEL[d]).join("・"),
     f.tags.length > 0 && `テーマ：${f.tags.join("・")}`,
     f.mode !== "all" && MODE_LABEL[f.mode],

@@ -10,8 +10,14 @@ const DIR = join(ROOT, "content", "questions");
 const OUT = join(ROOT, "data", "questions.generated.json");
 const UNITS = JSON.parse(readFileSync(join(ROOT, "content", "units.json"), "utf8"));
 
-const HEADER = ["id", "単元", "難易度", "学年", "問題", "答え", "別解", "誤答選択肢", "解説", "漢字注意", "タグ", "画像", "地図", "出典メモ", "確認"];
+const HEADER = ["id", "単元", "都道府県", "分類", "難易度", "学年", "問題", "答え", "別解", "誤答選択肢", "解説", "漢字注意", "タグ", "画像", "地図", "出典メモ", "確認"];
 const FILES = { history: "h", geography: "g", civics: "c" };
+const PREFECTURES = [
+  "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県",
+  "東京都", "神奈川県", "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", "静岡県", "愛知県", "三重県",
+  "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県", "徳島県",
+  "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+];
 const DIFFICULTY = { 基本: "basic", 標準: "standard", 発展: "advanced", 最難関: "top" };
 const list = (s) => s.split(/[|｜]/).map((x) => x.trim()).filter(Boolean);
 
@@ -51,6 +57,7 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
     else ids.set(r.id, where(line));
 
     if (!UNITS[category].includes(r.単元)) err(`単元「${r.単元}」は content/units.json にありません`);
+    if (r.都道府県 && !PREFECTURES.includes(r.都道府県)) err(`都道府県「${r.都道府県}」は正式名で（例: 東京都・京都府・北海道）`);
     if (!(r.難易度 in DIFFICULTY)) err(`難易度は ${Object.keys(DIFFICULTY).join(" / ")} のどれか`);
     if (r.学年 && !["4", "5", "6"].includes(r.学年)) err("学年は 4 / 5 / 6 か空欄");
     for (const k of ["問題", "答え", "解説"]) if (!r[k]) err(`${k}が空です`);
@@ -71,6 +78,8 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       id: r.id,
       category,
       unit: r.単元,
+      ...(r.都道府県 && { prefecture: r.都道府県 }),
+      ...(r.分類 && { kind: r.分類 }),
       difficulty: DIFFICULTY[r.難易度],
       ...(r.学年 && { grade: Number(r.学年) }),
       question: r.問題,

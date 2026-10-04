@@ -10,6 +10,10 @@ export type Question = {
   category: Category;
   /** 単元。content/units.json のどれか */
   unit: string;
+  /** 都道府県（地理で主に使う） */
+  prefecture?: string;
+  /** 問題の分類（山・河川・湖・旧国名 など） */
+  kind?: string;
   difficulty: Difficulty;
   /** 4 / 5 / 6 年。未設定なら全学年 */
   grade?: number;

@@ -103,7 +103,7 @@ export default function QuestionList({
                               <span className="block text-sm text-muted">答えを見る ▸</span>
                             )}
                             <span className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
-                              <span>{q.unit}</span>
+                              <span>{[q.unit, q.prefecture, q.kind].filter(Boolean).join("・")}</span>
                               <DifficultyBadge difficulty={q.difficulty} />
                               {r && (
                                 <span>

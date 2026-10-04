@@ -114,7 +114,7 @@ export default function Quiz({
       {/* 問題カード */}
       <article className="space-y-5 rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-8">
         <div className="flex flex-wrap gap-2">
-          <CategoryBadge category={q.category} sub={q.unit} />
+          <CategoryBadge category={q.category} sub={[q.unit, q.prefecture, q.kind].filter(Boolean).join("・")} />
           <DifficultyBadge difficulty={q.difficulty} />
         </div>
 

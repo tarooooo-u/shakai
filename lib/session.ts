@@ -21,6 +21,8 @@ export type Filter = {
   categories: Category[];
   /** 空なら選んだ分野の全単元 */
   units: string[];
+  /** 空なら絞り込まない。山・河川・旧国名 など */
+  kinds: string[];
   difficulties: Difficulty[];
   /** 空なら絞り込まない。どれか1つでも持っていれば対象 */
   tags: string[];
@@ -34,6 +36,7 @@ export type Filter = {
 export const DEFAULT_FILTER: Filter = {
   categories: [...CATEGORIES],
   units: [],
+  kinds: [],
   difficulties: [...DIFFICULTIES],
   tags: [],
   mode: "all",
@@ -60,6 +63,7 @@ export function matches(filter: Filter, q: Question, progress: Progress) {
   return (
     filter.categories.includes(q.category) &&
     (filter.units.length === 0 || filter.units.includes(q.unit)) &&
+    (filter.kinds.length === 0 || (q.kind !== undefined && filter.kinds.includes(q.kind))) &&
     filter.difficulties.includes(q.difficulty) &&
     (filter.tags.length === 0 || filter.tags.some((t) => q.tags.includes(t))) &&
     matchesMode(filter.mode, q, progress)
@@ -97,6 +101,7 @@ export function filterToQuery(f: Filter): string {
   const d = DEFAULT_FILTER;
   if (f.categories.length !== d.categories.length) p.set("c", f.categories.join(","));
   if (f.units.length) p.set("u", f.units.join(","));
+  if (f.kinds.length) p.set("k", f.kinds.join(","));
   if (f.difficulties.length !== d.difficulties.length) p.set("d", f.difficulties.join(","));
   if (f.tags.length) p.set("t", f.tags.join(","));
   if (f.mode !== d.mode) p.set("m", f.mode);
@@ -117,6 +122,7 @@ export function filterFromQuery(params: URLSearchParams): Filter | null {
   return {
     categories: pick(csv(params.get("c")), CATEGORIES) ?? d.categories,
     units: csv(params.get("u")) ?? [],
+    kinds: csv(params.get("k")) ?? [],
     difficulties: pick(csv(params.get("d")), DIFFICULTIES) ?? d.difficulties,
     tags: csv(params.get("t")) ?? [],
     mode: m && m in MODE_LABEL ? m : d.mode,
