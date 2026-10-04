@@ -39,10 +39,12 @@ export default function Home({
   progress,
   onStart,
   onOpenList,
+  onOpenReview,
 }: {
   progress: Progress;
   onStart: (ids: string[], style: Style) => void;
   onOpenList: (title: string, ids: string[]) => void;
+  onOpenReview: () => void;
 }) {
   const params = useSearchParams();
   // 保護者が送った URL（?u=江戸&n=7 など）で開いたときはその条件を初期値にする
@@ -326,7 +328,7 @@ export default function Home({
       <footer className="flex flex-wrap items-center justify-between gap-3 pb-4 text-sm">
         <button
           type="button"
-          onClick={() => onOpenList("要復習リスト", reviewIds)}
+          onClick={onOpenReview}
           className="font-semibold text-accent underline-offset-4 hover:underline"
         >
           要復習リストを見る →

@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { QUESTION_BY_ID } from "@/data";
+import { toggleFavorite, useFavorites } from "@/lib/favorites";
 import { recordGrade } from "@/lib/progress";
 import type { Grade, Question } from "@/lib/types";
 import type { Session } from "./App";
 import RainTempChart from "./RainTempChart";
-import { CategoryBadge, DifficultyBadge, GRADE_META } from "./ui";
+import { CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META } from "./ui";
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
 
@@ -29,6 +30,7 @@ export default function Quiz({
   // 4択で選んだ選択肢
   const [picked, setPicked] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, Grade>>({});
+  const favorites = useFavorites();
 
   const q = QUESTION_BY_ID.get(ids[index])!;
   const options = session.choices[q.id] ?? null;
@@ -66,6 +68,7 @@ export default function Quiz({
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Escape") return onFinish(results);
+      if (e.key === "f" || e.key === "F") return toggleFavorite(q.id);
       const enter = e.key === " " || e.key === "Enter";
       let handled = true;
       if (options && !revealed) {
@@ -88,7 +91,7 @@ export default function Quiz({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [options, revealed, correct, pick, grade, onFinish, results]);
+  }, [options, revealed, correct, pick, grade, onFinish, results, q.id]);
 
   return (
     <div className="space-y-4">
@@ -114,9 +117,12 @@ export default function Quiz({
 
       {/* 問題カード */}
       <article className="space-y-5 rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-8">
-        <div className="flex flex-wrap gap-2">
-          <CategoryBadge category={q.category} sub={[q.unit, q.prefecture, q.kind].filter(Boolean).join("・")} />
-          <DifficultyBadge difficulty={q.difficulty} />
+        <div className="flex items-start gap-2">
+          <div className="flex flex-1 flex-wrap gap-2">
+            <CategoryBadge category={q.category} sub={[q.unit, q.prefecture, q.kind].filter(Boolean).join("・")} />
+            <DifficultyBadge difficulty={q.difficulty} />
+          </div>
+          <FavoriteButton on={favorites.includes(q.id)} onClick={() => toggleFavorite(q.id)} />
         </div>
 
         <p className="text-lg leading-relaxed font-semibold sm:text-xl">{q.question}</p>
@@ -208,8 +214,8 @@ export default function Quiz({
 
       <p className="hidden text-center text-xs text-muted sm:block">
         {options
-          ? "キーボード：1〜4 で選ぶ ／ Enter で次へ（正解のとき 2 で「まぐれ」） ／ Esc で終了"
-          : "キーボード：Space で答え ／ 1・2・3 で 〇・△・× ／ Esc で終了"}
+          ? "キーボード：1〜4 で選ぶ ／ Enter で次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
+          : "キーボード：Space で答え ／ 1・2・3 で 〇・△・× ／ F でお気に入り ／ Esc で終了"}
       </p>
     </div>
   );

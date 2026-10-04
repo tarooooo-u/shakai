@@ -97,3 +97,21 @@ export function SmallChip({
     </button>
   );
 }
+
+/** ☆／★ お気に入りの切り替え */
+export function FavoriteButton({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label={on ? "お気に入りから外す" : "お気に入りに追加"}
+      title={on ? "お気に入りから外す" : "お気に入りに追加"}
+      onClick={onClick}
+      className={`flex size-10 shrink-0 items-center justify-center rounded-xl text-xl transition-colors ${
+        on ? "bg-unsure/15 text-unsure" : "text-muted hover:bg-surface-2 hover:text-unsure"
+      }`}
+    >
+      {on ? "★" : "☆"}
+    </button>
+  );
+}

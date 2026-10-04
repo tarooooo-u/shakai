@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { QUESTION_BY_ID } from "@/data";
-import { useProgress } from "@/lib/progress";
+import { useEffect, useState } from "react";
+import { QUESTIONS, QUESTION_BY_ID } from "@/data";
+import { useFavorites } from "@/lib/favorites";
+import { needsReview, useProgress } from "@/lib/progress";
 import { buildChoices, type Style } from "@/lib/session";
-import type { Grade } from "@/lib/types";
+import { CATEGORY_LABEL, UNITS, type Grade } from "@/lib/types";
 import Home from "./Home";
 import QuestionList from "./QuestionList";
 import Quiz from "./Quiz";
 import Result from "./Result";
+import Sidebar, { THEMES, type Page } from "./Sidebar";
+import TopicPage from "./TopicPage";
 
 export type Session = {
   ids: string[];
@@ -17,64 +20,175 @@ export type Session = {
   choices: Record<string, string[] | null>;
 };
 
-type View =
-  | { kind: "home" }
+/** サイドバーで選んだ画面の上に重ねて出すもの（演習・結果・一覧） */
+type Overlay =
+  | null
   | { kind: "quiz"; session: Session }
   | { kind: "result"; session: Session; results: Record<string, Grade> }
   | { kind: "list"; title: string; ids: string[] };
 
+const ALL_UNITS = Object.values(UNITS).flat();
+
 export default function App() {
   const progress = useProgress();
-  const [view, setView] = useState<View>({ kind: "home" });
+  const favorites = useFavorites();
+  const [page, setPage] = useState<Page>({ kind: "home" });
+  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   // 同じ問題セットで再スタートしたときに Quiz の状態をリセットするため
   const [runKey, setRunKey] = useState(0);
 
-  const go = (next: View) => {
-    setView(next);
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawerOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+
+  const show = (next: Overlay) => {
+    setOverlay(next);
     window.scrollTo(0, 0);
+  };
+  const navigate = (next: Page) => {
+    setPage(next);
+    setDrawerOpen(false);
+    show(null);
   };
   const start = (ids: string[], style: Style) => {
     if (ids.length === 0) return;
     const choices =
       style === "choice" ? Object.fromEntries(ids.map((id) => [id, buildChoices(QUESTION_BY_ID.get(id)!)])) : {};
     setRunKey((k) => k + 1);
-    go({ kind: "quiz", session: { ids, style, choices } });
+    show({ kind: "quiz", session: { ids, style, choices } });
   };
-  const home = () => go({ kind: "home" });
+  const openList = (title: string, ids: string[]) => show({ kind: "list", title, ids });
+  const back = () => show(null);
 
-  return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
-      {view.kind === "home" && (
-        <Home progress={progress} onStart={start} onOpenList={(title, ids) => go({ kind: "list", title, ids })} />
-      )}
-      {view.kind === "quiz" && (
+  const content = (() => {
+    if (overlay?.kind === "quiz") {
+      const { session } = overlay;
+      return (
         <Quiz
           key={runKey}
-          session={view.session}
+          session={session}
           onFinish={(results) => {
-            const answered = view.session.ids.filter((id) => results[id]);
-            if (answered.length === 0) return home();
-            go({ kind: "result", session: { ...view.session, ids: answered }, results });
+            const answered = session.ids.filter((id) => results[id]);
+            if (answered.length === 0) return back();
+            show({ kind: "result", session: { ...session, ids: answered }, results });
           }}
         />
-      )}
-      {view.kind === "result" && (
-        <Result
-          ids={view.session.ids}
-          results={view.results}
-          onRetry={(ids) => start(ids, view.session.style)}
-          onHome={home}
-        />
-      )}
-      {view.kind === "list" && (
+      );
+    }
+    if (overlay?.kind === "result") {
+      const { session, results } = overlay;
+      return (
+        <Result ids={session.ids} results={results} onRetry={(ids) => start(ids, session.style)} onHome={back} />
+      );
+    }
+    if (overlay?.kind === "list") {
+      return (
         <QuestionList
-          title={view.title}
-          ids={view.ids}
+          title={overlay.title}
+          ids={overlay.ids}
           progress={progress}
           onStart={(ids) => start(ids, "card")}
-          onHome={home}
+          onBack={back}
         />
+      );
+    }
+
+    switch (page.kind) {
+      case "home":
+        return <Home progress={progress} onStart={start} onOpenList={openList} onOpenReview={() => navigate({ kind: "review" })} />;
+      case "favorites":
+        return (
+          <QuestionList
+            title="お気に入り"
+            ids={favorites.filter((id) => QUESTION_BY_ID.has(id))}
+            progress={progress}
+            onStart={(ids) => start(ids, "card")}
+            emptyMessage="問題カードの ☆ を押すと、ここに集まります。"
+          />
+        );
+      case "review":
+        return (
+          <QuestionList
+            title="間違えた問題"
+            ids={QUESTIONS.filter((q) => needsReview(progress[q.id])).map((q) => q.id)}
+            progress={progress}
+            onStart={(ids) => start(ids, "card")}
+            emptyMessage="△・× をつけた問題が、ここに集まります。"
+          />
+        );
+      case "category":
+        return (
+          <TopicPage
+            key={page.category}
+            label="分野"
+            title={CATEGORY_LABEL[page.category]}
+            questions={QUESTIONS.filter((q) => q.category === page.category)}
+            unitOrder={UNITS[page.category]}
+            progress={progress}
+            onStart={start}
+            onOpenList={openList}
+          />
+        );
+      case "theme": {
+        const theme = THEMES.find((t) => t.tag === page.tag);
+        return (
+          <TopicPage
+            key={page.tag}
+            label="テーマ"
+            title={theme?.label ?? page.tag}
+            questions={QUESTIONS.filter((q) => q.tags.includes(page.tag))}
+            unitOrder={ALL_UNITS}
+            progress={progress}
+            onStart={start}
+            onOpenList={openList}
+          />
+        );
+      }
+      case "all":
+        return (
+          <QuestionList
+            title="問題と答えの一覧"
+            ids={QUESTIONS.map((q) => q.id)}
+            progress={progress}
+            onStart={(ids) => start(ids, "card")}
+          />
+        );
+    }
+  })();
+
+  return (
+    <div className="flex flex-1">
+      {/* PC・iPad横向き：左に常に出す */}
+      <div className="sticky top-0 hidden h-dvh shrink-0 md:block">
+        <Sidebar mode="rail" page={page} progress={progress} onNavigate={navigate} />
+      </div>
+
+      {/* スマホ・iPad縦向き：上に重ねて開く */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-40 flex md:hidden">
+          <Sidebar mode="drawer" page={page} progress={progress} onNavigate={navigate} onClose={() => setDrawerOpen(false)} />
+          <button type="button" aria-label="メニューを閉じる" className="flex-1 bg-black/30" onClick={() => setDrawerOpen(false)} />
+        </div>
       )}
-    </main>
+
+      <div className="min-w-0 flex-1">
+        <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-bg/95 px-2 py-1.5 backdrop-blur md:hidden">
+          <button
+            type="button"
+            aria-label="メニューを開く"
+            onClick={() => setDrawerOpen(true)}
+            className="flex size-10 items-center justify-center rounded-xl text-xl hover:bg-surface-2"
+          >
+            ☰
+          </button>
+          <span className="font-bold">社会ドリル</span>
+        </div>
+        <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8">{content}</main>
+      </div>
+    </div>
   );
 }

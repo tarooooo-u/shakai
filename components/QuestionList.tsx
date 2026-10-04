@@ -2,26 +2,31 @@
 
 import { useState } from "react";
 import { QUESTION_BY_ID } from "@/data";
+import { toggleFavorite, useFavorites } from "@/lib/favorites";
 import type { Progress } from "@/lib/progress";
 import { shuffle } from "@/lib/session";
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/types";
 import RainTempChart from "./RainTempChart";
-import { DifficultyBadge, GradeMark } from "./ui";
+import { DifficultyBadge, FavoriteButton, GradeMark } from "./ui";
 
-/** 問題と答えの一覧。保護者が口頭で出題したり、要復習を見直したりする用 */
+/** 問題と答えの一覧。保護者が口頭で出題したり、お気に入り・間違えた問題を見直したりする用 */
 export default function QuestionList({
   title,
   ids,
   progress,
   onStart,
-  onHome,
+  onBack,
+  emptyMessage = "問題はありません。",
 }: {
   title: string;
   ids: string[];
   progress: Progress;
   onStart: (ids: string[]) => void;
-  onHome: () => void;
+  /** 一覧の上に「← もどる」を出す（サイドバーから開いたときは不要） */
+  onBack?: () => void;
+  emptyMessage?: string;
 }) {
+  const favorites = useFavorites();
   const [showAll, setShowAll] = useState(true);
   // 「答えを隠す」ときに個別にタップして開いた問題
   const [opened, setOpened] = useState<Set<string>>(new Set());
@@ -37,18 +42,20 @@ export default function QuestionList({
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between gap-3">
-        <button type="button" onClick={onHome} className="min-h-11 text-sm font-semibold text-muted hover:text-ink">
-          ← ホーム
-        </button>
-        <h1 className="text-center text-lg font-bold">
-          {title}（{ids.length}問）
+      <header className="space-y-1">
+        {onBack && (
+          <button type="button" onClick={onBack} className="min-h-11 text-sm font-semibold text-muted hover:text-ink">
+            ← もどる
+          </button>
+        )}
+        <h1 className="text-2xl font-bold">
+          {title}
+          <span className="ml-2 text-base font-semibold text-muted">{ids.length}問</span>
         </h1>
-        <span className="w-14" />
       </header>
 
       {ids.length === 0 ? (
-        <p className="rounded-2xl border border-line bg-surface p-8 text-center text-muted">問題はありません。</p>
+        <p className="rounded-2xl border border-line bg-surface p-8 text-center text-muted">{emptyMessage}</p>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
@@ -87,16 +94,14 @@ export default function QuestionList({
                     const r = progress[q.id];
                     const open = showAll || opened.has(q.id);
                     return (
-                      <li key={q.id}>
+                      <li key={q.id} className="flex gap-1 rounded-2xl border border-line bg-surface p-2 pl-4">
                         <button
                           type="button"
                           onClick={() => !showAll && toggle(q.id)}
-                          className={`flex w-full gap-3 rounded-2xl border border-line bg-surface p-4 text-left ${
-                            showAll ? "cursor-default" : ""
-                          }`}
+                          className={`flex min-w-0 flex-1 gap-3 py-2 text-left ${showAll ? "cursor-default" : ""}`}
                         >
                           <span className="w-5 shrink-0 text-xl">{r ? <GradeMark grade={r.grade} /> : null}</span>
-                          <span className="flex-1 space-y-1">
+                          <span className="min-w-0 flex-1 space-y-1">
                             <span className="block text-sm leading-relaxed">{q.question}</span>
                             {q.climate && (
                               <span className="block max-w-xs">
@@ -119,6 +124,7 @@ export default function QuestionList({
                             </span>
                           </span>
                         </button>
+                        <FavoriteButton on={favorites.includes(q.id)} onClick={() => toggleFavorite(q.id)} />
                       </li>
                     );
                   })}

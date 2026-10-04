@@ -59,7 +59,7 @@ export default function Result({
           onClick={onHome}
           className="min-h-14 rounded-2xl border border-line bg-surface px-5 text-base font-bold transition-colors hover:bg-surface-2"
         >
-          ホームへ
+          もどる
         </button>
       </div>
 
