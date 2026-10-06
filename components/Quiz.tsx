@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { QUESTION_BY_ID } from "@/data";
 import { toggleFavorite, useFavorites } from "@/lib/favorites";
+import { judgeMap, type LatLng } from "@/lib/mapTask";
 import { recordGrade } from "@/lib/progress";
 import type { Grade, Question } from "@/lib/types";
 import type { Session } from "./App";
+import MapTap, { mapFeedback } from "./MapTap";
 import RainTempChart from "./RainTempChart";
 import { CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META } from "./ui";
 
@@ -29,12 +31,18 @@ export default function Quiz({
   const [revealed, setRevealed] = useState(false);
   // 4択で選んだ選択肢
   const [picked, setPicked] = useState<string | null>(null);
+  // 地図問題で立てたピン
+  const [pin, setPin] = useState<LatLng | null>(null);
   const [results, setResults] = useState<Record<string, Grade>>({});
   const favorites = useFavorites();
 
   const q = QUESTION_BY_ID.get(ids[index])!;
-  const options = session.choices[q.id] ?? null;
-  const correct = picked === q.answer;
+  const mapTask = q.mapTask;
+  const options = mapTask ? null : (session.choices[q.id] ?? null);
+  const mapVerdict = mapTask && pin ? judgeMap(mapTask, pin) : null;
+  // 4択と地図問題は自動で採点する（カードは自己採点）
+  const auto = options !== null || mapTask !== undefined;
+  const correct = mapTask ? mapVerdict === "ok" : picked === q.answer;
 
   const grade = useCallback(
     (g: Grade) => {
@@ -47,6 +55,7 @@ export default function Quiz({
         setIndex(index + 1);
         setRevealed(false);
         setPicked(null);
+        setPin(null);
       }
     },
     [q.id, results, index, ids.length, onFinish],
@@ -63,6 +72,7 @@ export default function Quiz({
   // キーボード操作
   //   カード: Space/Enter で答え → 1/2/3 で 〇/△/×
   //   4択:    1〜4 で選ぶ → Enter で次へ（正解なら 2 で「まぐれ」）
+  //   地図:   ピンを立てて Enter で決定 → Enter で次へ（正解なら 2 で「まぐれ」）
   //   Esc で終了
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -71,11 +81,14 @@ export default function Quiz({
       if (e.key === "f" || e.key === "F") return toggleFavorite(q.id);
       const enter = e.key === " " || e.key === "Enter";
       let handled = true;
-      if (options && !revealed) {
+      if (mapTask && !revealed) {
+        if (enter && pin) setRevealed(true);
+        else handled = false;
+      } else if (options && !revealed) {
         const i = Number(e.key) - 1;
         if (i >= 0 && i < options.length) pick(options[i]);
         else handled = false;
-      } else if (options) {
+      } else if (auto) {
         if (enter) grade(correct ? "ok" : "ng");
         else if (correct && e.key === "2") grade("unsure");
         else handled = false;
@@ -91,7 +104,7 @@ export default function Quiz({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [options, revealed, correct, pick, grade, onFinish, results, q.id]);
+  }, [options, mapTask, pin, auto, revealed, correct, pick, grade, onFinish, results, q.id]);
 
   return (
     <div className="space-y-4">
@@ -135,6 +148,15 @@ export default function Quiz({
             <img src={q.imageUrl} alt="問題の画像" loading="lazy" className="mx-auto max-h-80 rounded-xl border border-line" />
             {q.imageCredit && <figcaption className="text-center text-[11px] text-muted">{q.imageCredit}</figcaption>}
           </figure>
+        )}
+
+        {mapTask && (
+          <div className="space-y-2">
+            <MapTap task={mapTask} pin={pin} onPin={setPin} decided={revealed} />
+            {!revealed && (
+              <p className="text-center text-sm text-muted">地図をタップしてピンを立てよう。ドラッグで動かせるよ。</p>
+            )}
+          </div>
         )}
 
         {options && q.imageChoices && (
@@ -200,7 +222,22 @@ export default function Quiz({
         )}
 
         {revealed ? (
-          <Explanation q={q} verdict={options ? (correct ? "正解！" : "ざんねん") : undefined} />
+          <Explanation
+            q={q}
+            verdict={
+              mapVerdict ? MAP_VERDICT[mapVerdict] : options ? (correct ? "正解！" : "ざんねん") : undefined
+            }
+            note={mapTask && pin ? mapFeedback(mapTask, pin) : undefined}
+          />
+        ) : mapTask ? (
+          <button
+            type="button"
+            disabled={!pin}
+            onClick={() => setRevealed(true)}
+            className="min-h-14 w-full rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            けってい
+          </button>
         ) : (
           !options && (
             <button
@@ -215,7 +252,7 @@ export default function Quiz({
       </article>
 
       {/* 採点 */}
-      {revealed && !options && (
+      {revealed && !auto && (
         <div className="grid grid-cols-3 gap-2.5">
           {GRADES.map((g) => (
             <button
@@ -230,7 +267,7 @@ export default function Quiz({
           ))}
         </div>
       )}
-      {revealed && options && (
+      {revealed && auto && (
         <div className={`grid gap-2.5 ${correct ? "grid-cols-2" : "grid-cols-1"}`}>
           <button
             type="button"
@@ -252,7 +289,9 @@ export default function Quiz({
       )}
 
       <p className="hidden text-center text-xs text-muted sm:block">
-        {options
+        {mapTask
+          ? "キーボード：Enter で決定・次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
+          : options
           ? "キーボード：1〜4 で選ぶ ／ Enter で次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
           : "キーボード：Space で答え ／ 1・2・3 で 〇・△・× ／ F でお気に入り ／ Esc で終了"}
       </p>
@@ -260,7 +299,9 @@ export default function Quiz({
   );
 }
 
-function Explanation({ q, verdict }: { q: Question; verdict?: string }) {
+const MAP_VERDICT = { ok: "正解！", close: "おしい！", ng: "ざんねん" };
+
+function Explanation({ q, verdict, note }: { q: Question; verdict?: string; note?: string }) {
   return (
     <div className="space-y-4 border-t border-line pt-5">
       <div>
@@ -269,6 +310,7 @@ function Explanation({ q, verdict }: { q: Question; verdict?: string }) {
         {q.altAnswers.length > 0 && (
           <div className="mt-1 text-sm text-muted">別解：{q.altAnswers.join("／")}</div>
         )}
+        {note && <div className="mt-1 text-sm font-semibold text-muted">{note}</div>}
       </div>
       {q.kanjiNote && (
         <div className="rounded-xl bg-note px-4 py-3 text-sm text-note-ink">

@@ -11,7 +11,8 @@
     "lint": "eslint",
     "stats": "node scripts/update-stats.mjs",
     "climate": "node scripts/update-climate.mjs",
-    "images": "node scripts/fetch-images.mjs"
+    "images": "node scripts/fetch-images.mjs",
+    "map": "node scripts/update-map.mjs"
   },
   "dependencies": {
     "next": "16.3.8",

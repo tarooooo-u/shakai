@@ -1,4 +1,5 @@
 import units from "@/content/units.json";
+import type { MapTask } from "./mapTask";
 
 export type Category = "history" | "geography" | "civics";
 
@@ -36,6 +37,8 @@ export type Question = {
   /** 画像で選ぶ4択：選択肢（答え・誤答）→ 画像 */
   imageChoices?: Record<string, { src: string; credit: string }>;
   map?: { lat: number; lng: number };
+  /** 白地図をタップして答える問題（CSV の「地図問題」列） */
+  mapTask?: MapTask;
   /** 雨温図（気象庁の平年値）。月別の平均気温℃・降水量mm */
   climate?: { temp: number[]; tempYear: number; precip: number[]; precipYear: number };
   /** 統計の年・出典など */
