@@ -337,6 +337,8 @@ export const SUBJECTS = [
   { name: "福岡県章", slug: "kensho-fukuoka", file: "Emblem of Fukuoka Prefecture.svg", kind: "地理" },
   { name: "長崎県章", slug: "kensho-nagasaki", file: "Emblem of Nagasaki Prefecture.svg", kind: "地理" },
   { name: "熊本県章", slug: "kensho-kumamoto", file: "Emblem of Kumamoto Prefecture.svg", kind: "地理" },
+  { name: "大分県章", slug: "kensho-oita", file: "Emblem of Oita Prefecture.svg", kind: "地理" },
+  { name: "鹿児島県章", slug: "kensho-kagoshima", file: "Emblem of Kagoshima Prefecture.svg", kind: "地理" },
   { name: "沖縄県章", slug: "kensho-okinawa", file: "Emblem of Okinawa Prefecture.svg", kind: "地理" },
 ];
 
