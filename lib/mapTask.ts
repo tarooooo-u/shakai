@@ -1,12 +1,19 @@
 // 白地図をタップして答える問題（地図問題）の判定。
 // 判定は画面のピクセルではなく経度・緯度で行う（画面の大きさで変わらないように）。
 // 同じ判定を scripts/build-questions.mjs でも使っている（勘で当たる確率のチェック）。変えるときは両方そろえる。
+import extents from "@/content/maps/extents.json";
 
-/** 経線・緯線は許すはば（度）、交点は許す距離（km） */
-export type MapTask =
+/**
+ * 経線・緯線は許すはば（度）、交点は許す距離（km）。
+ * extent は地図の範囲（content/maps/extents.json の名前。全国・近畿 など）
+ */
+export type MapTask = { extent: string } & (
   | { kind: "meridian"; lng: number; tol: number }
   | { kind: "parallel"; lat: number; tol: number }
-  | { kind: "point"; lat: number; lng: number; tolKm: number };
+  | { kind: "point"; lat: number; lng: number; tolKm: number }
+);
+
+export type MapExtent = { west: number; east: number; south: number; north: number };
 
 export type LatLng = { lat: number; lng: number };
 
@@ -14,7 +21,7 @@ export type LatLng = { lat: number; lng: number };
 export type MapVerdict = "ok" | "close" | "ng";
 
 /** 地図に出す範囲。経線・緯線がまっすぐ縦・横に並ぶ図法（正距円筒図法）で描く */
-export const JAPAN_EXTENT = { west: 128.3, east: 149.0, south: 29.5, north: 46.0 };
+export const MAP_EXTENTS: Record<string, MapExtent> = extents;
 
 const KM_PER_DEG = 111.2;
 

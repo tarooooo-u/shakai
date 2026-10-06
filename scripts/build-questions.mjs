@@ -38,22 +38,25 @@ const CLIMATE = new Map();
 
 // 地図問題（白地図をタップする問題）。判定は lib/mapTask.ts と同じ
 const JAPAN_MAP = JSON.parse(readFileSync(join(ROOT, "content", "maps", "japan.json"), "utf8"));
-const JAPAN_EXTENT = { west: 128.3, east: 149.0, south: 29.5, north: 46.0 }; // lib/mapTask.ts と同じ
+// 地図の範囲（全国・近畿 など）。tol / tolKm は許すはばを書かなかったときの値
+const EXTENTS = JSON.parse(readFileSync(join(ROOT, "content", "maps", "extents.json"), "utf8"));
 // 勘で当たる確率の上限。地図の陸地をでたらめにタップしたとき、正解になる割合
 const MAX_GUESS = 0.1;
-const DEFAULT_TOL = { 経線: 0.5, 緯線: 0.5, 交点: 40 };
 
 function parseMapTask(s) {
-  // 経線:135 / 緯線:40 / 交点:40,140（北緯,東経）。末尾に「:0.3」（度）や「:30km」で許すはばを変えられる
-  const m = s.match(/^(経線|緯線|交点):\s*(-?\d+(?:\.\d+)?)(?:\s*,\s*(-?\d+(?:\.\d+)?))?(?::\s*(\d+(?:\.\d+)?)\s*(km)?)?$/);
-  if (!m) return { error: "地図問題は「経線:135」「緯線:40」「交点:40,140」の形（許すはばは「経線:135:0.3」「交点:40,140:30km」）" };
-  const [, kind, a, b, tol, km] = m;
+  // 経線:135 / 緯線:40 / 交点:40,140（北緯,東経）。末尾に「:0.3」（度）や「:30km」で許すはばを変えられる。
+  // 「@近畿」で地方の地図にする（書かなければ全国）
+  const m = s.match(/^(経線|緯線|交点):\s*(-?\d+(?:\.\d+)?)(?:\s*,\s*(-?\d+(?:\.\d+)?))?(?::\s*(\d+(?:\.\d+)?)\s*(km)?)?(?:\s*@\s*(\S+))?$/);
+  if (!m) return { error: "地図問題は「経線:135」「緯線:40」「交点:40,140」の形（許すはばは「経線:135:0.3」「交点:40,140:30km」、地方の地図は「緯線:35@近畿」）" };
+  const [, kind, a, b, tol, km, extent = "全国"] = m;
+  const E = EXTENTS[extent];
+  if (!E) return { error: `地図の範囲「${extent}」は content/maps/extents.json にありません（${Object.keys(EXTENTS).join(" / ")}）` };
   if ((kind === "交点") !== (b !== undefined)) return { error: "交点は「交点:北緯,東経」、経線・緯線は数字1つ" };
   if (tol !== undefined && (kind === "交点") !== (km !== undefined)) return { error: "許すはばは、経線・緯線は度（:0.3）、交点は km（:30km）で書く" };
-  const t = tol === undefined ? DEFAULT_TOL[kind] : Number(tol);
-  if (kind === "経線") return { task: { kind: "meridian", lng: Number(a), tol: t } };
-  if (kind === "緯線") return { task: { kind: "parallel", lat: Number(a), tol: t } };
-  return { task: { kind: "point", lat: Number(a), lng: Number(b), tolKm: t } };
+  const t = tol === undefined ? (kind === "交点" ? E.tolKm : E.tol) : Number(tol);
+  if (kind === "経線") return { task: { extent, kind: "meridian", lng: Number(a), tol: t } };
+  if (kind === "緯線") return { task: { extent, kind: "parallel", lat: Number(a), tol: t } };
+  return { task: { extent, kind: "point", lat: Number(a), lng: Number(b), tolKm: t } };
 }
 
 function mapValue(task, lat, lng) {
@@ -65,9 +68,10 @@ function mapValue(task, lat, lng) {
 }
 const mapTol = (task) => (task.kind === "point" ? task.tolKm : task.tol);
 
-// 日本の陸地の上に 0.05度ごとに点を置いておき、勘で当たる確率を数える
-const LAND = [];
-{
+// 地図の範囲ごとに、日本の陸地の上に細かく点を置いておき、勘で当たる確率を数える
+const LAND = new Map();
+function landPoints(name) {
+  if (LAND.has(name)) return LAND.get(name);
   const inside = (ring, x, y) => {
     let c = false;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -78,17 +82,22 @@ const LAND = [];
     return c;
   };
   const boxes = JAPAN_MAP.japan.map((r) => [r, Math.min(...r.map((p) => p[0])), Math.max(...r.map((p) => p[0])), Math.min(...r.map((p) => p[1])), Math.max(...r.map((p) => p[1]))]);
-  const E = JAPAN_EXTENT;
-  for (let lat = E.south; lat <= E.north; lat += 0.05)
-    for (let lng = E.west; lng <= E.east; lng += 0.05)
+  const E = EXTENTS[name];
+  // 地図の短いほうの辺を300に分けた間かく
+  const step = Math.min(E.east - E.west, E.north - E.south) / 300;
+  const points = [];
+  for (let lat = E.south; lat <= E.north; lat += step)
+    for (let lng = E.west; lng <= E.east; lng += step)
       if (boxes.some(([r, x0, x1, y0, y1]) => lng >= x0 && lng <= x1 && lat >= y0 && lat <= y1 && inside(r, lng, lat)))
-        // 高い緯度ほど同じ0.05度の面積が小さいので重みをつける
-        LAND.push([lat, lng, Math.cos((lat * Math.PI) / 180)]);
+        // 高い緯度ほど同じ間かくの面積が小さいので重みをつける
+        points.push([lat, lng, Math.cos((lat * Math.PI) / 180)]);
+  LAND.set(name, points);
+  return points;
 }
 function guessRate(task) {
   let hit = 0;
   let all = 0;
-  for (const [lat, lng, w] of LAND) {
+  for (const [lat, lng, w] of landPoints(task.extent)) {
     all += w;
     if (mapValue(task, lat, lng) <= mapTol(task)) hit += w;
   }
@@ -187,7 +196,7 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       const { task, error } = parseMapTask(r.地図問題);
       if (error) err(error);
       else {
-        const E = JAPAN_EXTENT;
+        const E = EXTENTS[task.extent];
         const lat = task.lat ?? (E.south + E.north) / 2;
         const lng = task.lng ?? (E.west + E.east) / 2;
         const rate = guessRate(task);

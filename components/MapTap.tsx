@@ -1,28 +1,60 @@
 "use client";
 
-import { useRef, type PointerEvent } from "react";
+import { useId, useRef, type PointerEvent } from "react";
 import japan from "@/content/maps/japan.json";
-import { JAPAN_EXTENT as E, formatLat, formatLng, judgeMap, mapError, type LatLng, type MapTask } from "@/lib/mapTask";
+import { MAP_EXTENTS, formatLat, formatLng, judgeMap, mapError, type LatLng, type MapExtent, type MapTask } from "@/lib/mapTask";
 
-// 正距円筒図法：経線は縦、緯線は横のまっすぐな線になる。
-// まん中の緯度で横をちぢめて、日本の形が横に太らないようにする
-const SCALE = 50;
-const K = Math.cos((((E.south + E.north) / 2) * Math.PI) / 180);
-const W = (E.east - E.west) * K * SCALE;
-const H = (E.north - E.south) * SCALE;
-const x = (lng: number) => (lng - E.west) * K * SCALE;
-const y = (lat: number) => (E.north - lat) * SCALE;
+// 地図の横はばは、どの範囲でもこの長さ（ピンや線の太さをそろえるため）
+const WIDTH = 800;
 
-const toPath = (rings: number[][][]) =>
-  rings.map((r) => "M" + r.map(([lng, lat]) => `${x(lng).toFixed(1)},${y(lat).toFixed(1)}`).join("L") + "Z").join("");
-const JAPAN_PATH = toPath(japan.japan);
-const OTHERS_PATH = toPath(japan.others);
+/**
+ * 正距円筒図法：経線は縦、緯線は横のまっすぐな線になる。
+ * まん中の緯度で横をちぢめて、形が横に太らないようにする
+ */
+function projection(E: MapExtent) {
+  const k = Math.cos((((E.south + E.north) / 2) * Math.PI) / 180);
+  const scale = WIDTH / ((E.east - E.west) * k);
+  const x = (lng: number) => (lng - E.west) * k * scale;
+  const y = (lat: number) => (E.north - lat) * scale;
+  const overlaps = (r: number[][]) =>
+    r.some(([lng]) => lng >= E.west - 1) &&
+    r.some(([lng]) => lng <= E.east + 1) &&
+    r.some(([, lat]) => lat >= E.south - 1) &&
+    r.some(([, lat]) => lat <= E.north + 1);
+  const toPath = (lines: number[][][], close = true) =>
+    lines
+      .filter(overlaps)
+      .map((r) => "M" + r.map(([lng, lat]) => `${x(lng).toFixed(1)},${y(lat).toFixed(1)}`).join("L") + (close ? "Z" : ""))
+      .join("");
+  return {
+    E,
+    scale,
+    W: WIDTH,
+    H: (E.north - E.south) * scale,
+    x,
+    y,
+    invert: (px: number, py: number) => ({ lng: E.west + px / (k * scale), lat: E.north - py / scale }),
+    japanPath: toPath(japan.japan),
+    othersPath: toPath(japan.others),
+    lakesPath: toPath(japan.lakes),
+    bordersPath: toPath(japan.borders, false),
+  };
+}
+type Projection = ReturnType<typeof projection>;
+
+// 地図の範囲ごとに一度だけ作る
+const PROJECTIONS = new Map<string, Projection>();
+const getProjection = (name: string) => {
+  if (!PROJECTIONS.has(name)) PROJECTIONS.set(name, projection(MAP_EXTENTS[name]));
+  return PROJECTIONS.get(name)!;
+};
 
 const VERDICT_COLOR = { ok: "var(--ok)", close: "var(--unsure)", ng: "var(--ng)" };
 
 /**
  * 白地図をタップ（クリック）してピンを立てる。ドラッグで動かせる。
- * decided になったら正解の線・点と、ピンのずれを表示する。
+ * ピンには、経線の問題なら縦線、緯線なら横線、交点なら十字の補助線が付く。
+ * decided になったら正解の線・点と、正解にする範囲を表示する。
  */
 export default function MapTap({
   task,
@@ -37,14 +69,15 @@ export default function MapTap({
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
+  const clipId = useId();
+  const P = getProjection(task.extent);
+  const { W, H, x, y } = P;
 
   const place = (e: PointerEvent<SVGSVGElement>) => {
     const ctm = svg.current?.getScreenCTM();
     if (!ctm) return;
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
-    const px = Math.max(0, Math.min(W, pt.x));
-    const py = Math.max(0, Math.min(H, pt.y));
-    onPin({ lng: E.west + px / (K * SCALE), lat: E.north - py / SCALE });
+    onPin(P.invert(Math.max(0, Math.min(W, pt.x)), Math.max(0, Math.min(H, pt.y))));
   };
 
   const verdict = decided && pin ? judgeMap(task, pin) : null;
@@ -55,7 +88,7 @@ export default function MapTap({
       ref={svg}
       viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label="日本の白地図。答えの場所をタップしてピンを立てる"
+      aria-label="白地図。答えの場所をタップしてピンを立てる"
       className={`mx-auto block max-h-[70vh] w-full touch-none rounded-2xl border border-line select-none ${decided ? "" : "cursor-crosshair"}`}
       onPointerDown={(e) => {
         if (decided) return;
@@ -68,13 +101,26 @@ export default function MapTap({
       onPointerCancel={() => (dragging.current = false)}
     >
       <rect width={W} height={H} fill="var(--sea)" />
-      <path d={OTHERS_PATH} fill="var(--surface-2)" stroke="var(--line)" strokeWidth={1} />
-      <path d={JAPAN_PATH} fill="var(--surface)" stroke="var(--muted)" strokeWidth={1.2} strokeLinejoin="round" />
+      <path d={P.othersPath} fill="var(--land-other)" stroke="var(--land-other-line)" strokeWidth={1} strokeLinejoin="round" />
+      <path d={P.japanPath} fill="var(--land)" stroke="var(--land-line)" strokeWidth={1.2} strokeLinejoin="round" />
+      {/* 県境は陸の上だけに描く（データには海の上を通る線もある） */}
+      <clipPath id={clipId}>
+        <path d={P.japanPath} />
+      </clipPath>
+      <path d={P.bordersPath} clipPath={`url(#${clipId})`} fill="none" stroke="var(--land-border)" strokeWidth={0.8} strokeLinejoin="round" />
+      <path d={P.lakesPath} fill="var(--sea)" stroke="var(--land-line)" strokeWidth={1} strokeLinejoin="round" />
 
-      {decided && <Answer task={task} />}
+      {decided && <Answer task={task} P={P} />}
 
       {pin && (
         <g>
+          {/* 補助線：経線なら縦、緯線なら横、交点なら十字 */}
+          {task.kind !== "parallel" && (
+            <line x1={x(pin.lng)} y1={0} x2={x(pin.lng)} y2={H} stroke={color} strokeWidth={1.5} strokeOpacity={0.8} />
+          )}
+          {task.kind !== "meridian" && (
+            <line x1={0} y1={y(pin.lat)} x2={W} y2={y(pin.lat)} stroke={color} strokeWidth={1.5} strokeOpacity={0.8} />
+          )}
           {decided && task.kind === "point" && (
             <line x1={x(pin.lng)} y1={y(pin.lat)} x2={x(task.lng)} y2={y(task.lat)} stroke={color} strokeWidth={2} strokeDasharray="5 4" />
           )}
@@ -87,7 +133,8 @@ export default function MapTap({
 }
 
 /** 正解の線（または点）と、正解にする範囲 */
-function Answer({ task }: { task: MapTask }) {
+function Answer({ task, P }: { task: MapTask; P: Projection }) {
+  const { W, H, x, y } = P;
   const label = { fontSize: 22, fontWeight: 700, fill: "var(--ok)", paintOrder: "stroke", stroke: "var(--surface)", strokeWidth: 5 } as const;
   if (task.kind === "meridian") {
     const [x0, x1] = [x(task.lng - task.tol), x(task.lng + task.tol)];
@@ -110,7 +157,7 @@ function Answer({ task }: { task: MapTask }) {
     );
   }
   // km → 地図上の長さ（緯度1度 ≒ 111km）
-  const r = (task.tolKm / 111.2) * SCALE;
+  const r = (task.tolKm / 111.2) * P.scale;
   return (
     <g>
       <circle cx={x(task.lng)} cy={y(task.lat)} r={r} fill="var(--ok)" fillOpacity={0.15} stroke="var(--ok)" strokeWidth={1.5} />

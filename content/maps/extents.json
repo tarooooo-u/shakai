@@ -1,0 +1,10 @@
+{
+  "全国": { "west": 128.3, "east": 149.0, "south": 29.5, "north": 46.0, "tol": 0.5, "tolKm": 40 },
+  "北海道": { "west": 139.3, "east": 149.0, "south": 41.2, "north": 45.8, "tol": 0.2, "tolKm": 20 },
+  "東北": { "west": 138.8, "east": 142.4, "south": 36.7, "north": 41.6, "tol": 0.2, "tolKm": 20 },
+  "関東": { "west": 138.3, "east": 141.0, "south": 34.8, "north": 37.2, "tol": 0.2, "tolKm": 20 },
+  "中部": { "west": 135.9, "east": 139.4, "south": 34.4, "north": 38.6, "tol": 0.2, "tolKm": 20 },
+  "近畿": { "west": 134.1, "east": 136.9, "south": 33.3, "north": 35.9, "tol": 0.2, "tolKm": 20 },
+  "中国・四国": { "west": 130.8, "east": 134.9, "south": 32.6, "north": 36.4, "tol": 0.2, "tolKm": 20 },
+  "九州": { "west": 128.3, "east": 132.3, "south": 29.8, "north": 34.8, "tol": 0.2, "tolKm": 20 }
+}

@@ -14,7 +14,13 @@
   --ng: #c2412d;
   --note: #fff6dc;
   --note-ink: #7a5300;
-  --sea: #e3edf3;
+  /* 白地図：海・日本・まわりの国 */
+  --sea: #d9e8f2;
+  --land: #ffffff;
+  --land-line: #6f7884;
+  --land-border: #b4bac2;
+  --land-other: #e2e0da;
+  --land-other-line: #b9b4aa;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -32,7 +38,12 @@
     --ng: #ef7d6b;
     --note: #3a3220;
     --note-ink: #f0d590;
-    --sea: #17212b;
+    --sea: #142330;
+    --land: #2b323c;
+    --land-line: #8d96a1;
+    --land-border: #4c5560;
+    --land-other: #1e2329;
+    --land-other-line: #3b424c;
   }
 }
 
