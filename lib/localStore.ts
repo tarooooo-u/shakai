@@ -52,5 +52,5 @@ export function createLocalStore<T>(key: string, empty: T) {
   // サーバー側（と最初のハイドレーション）では空の値を使う
   const use = (): T => useSyncExternalStore(subscribe, get, () => empty);
 
-  return { get, set, use };
+  return { get, set, use, subscribe };
 }

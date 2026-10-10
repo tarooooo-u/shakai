@@ -4,7 +4,9 @@ import { QUESTIONS } from "@/data";
 import { useFavorites } from "@/lib/favorites";
 import { createLocalStore } from "@/lib/localStore";
 import { needsReview, type Progress } from "@/lib/progress";
+import { leaveProfile, type Profile } from "@/lib/profiles";
 import { CATEGORIES, CATEGORY_LABEL, type Category } from "@/lib/types";
+import { ProfileBadge } from "./ProfileGate";
 
 /** サイドバーから移動できる画面 */
 export type Page =
@@ -97,12 +99,14 @@ function Heading({ children, collapsed }: { children: string; collapsed: boolean
 export default function Sidebar({
   mode,
   page,
+  profile,
   progress,
   onNavigate,
   onClose,
 }: {
   mode: "rail" | "drawer";
   page: Page;
+  profile: Profile;
   progress: Progress;
   onNavigate: (page: Page) => void;
   onClose?: () => void;
@@ -140,6 +144,23 @@ export default function Sidebar({
           </button>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={leaveProfile}
+        title={collapsed ? `${profile.name}（人を切りかえる）` : undefined}
+        className={`mb-1 flex min-h-12 w-full items-center gap-2.5 rounded-xl border border-line px-2 text-left hover:bg-surface-2 ${
+          collapsed ? "justify-center border-transparent" : ""
+        }`}
+      >
+        <ProfileBadge profile={profile} size="sm" />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1 truncate font-bold">{profile.name}</span>
+            <span className="text-xs text-muted">切りかえ</span>
+          </>
+        )}
+      </button>
 
       <Item {...nav} to={{ kind: "home" }} mark="⌂" label="ホーム" />
 

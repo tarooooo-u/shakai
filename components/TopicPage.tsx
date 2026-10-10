@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { needsReview, type Progress } from "@/lib/progress";
+import { isActive, isGraduated, needsReview, type Progress } from "@/lib/progress";
 import { STYLE_LABEL, shuffle, type Style } from "@/lib/session";
 import type { Question } from "@/lib/types";
 import { Chip, Section, SmallChip } from "./ui";
@@ -31,6 +31,8 @@ export default function TopicPage({
   const [units, setUnits] = useState<string[]>([]);
   const [style, setStyle] = useState<Style>("card");
   const [count, setCount] = useState(7);
+  // false = 卒業した問題は出さない
+  const [includeGraduated, setIncludeGraduated] = useState(false);
 
   const unitCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -38,9 +40,11 @@ export default function TopicPage({
     return [...m].sort((a, b) => unitOrder.indexOf(a[0]) - unitOrder.indexOf(b[0]));
   }, [questions, unitOrder]);
 
-  const ok = questions.filter((q) => progress[q.id]?.grade === "ok").length;
+  const graduated = questions.filter((q) => isGraduated(progress[q.id])).length;
   const review = questions.filter((q) => needsReview(progress[q.id]));
-  const pool = units.length ? questions.filter((q) => units.includes(q.unit)) : questions;
+  const active = questions.filter((q) => isActive(progress[q.id]));
+  const inUnits = units.length ? questions.filter((q) => units.includes(q.unit)) : questions;
+  const pool = includeGraduated ? inUnits : inUnits.filter((q) => isActive(progress[q.id]));
   const willAsk = count ? Math.min(count, pool.length) : pool.length;
   const pick = (list: Question[], n: number) => shuffle(list.map((q) => q.id)).slice(0, n || undefined);
   const toggleUnit = (u: string) => setUnits(units.includes(u) ? units.filter((x) => x !== u) : [...units, u]);
@@ -52,7 +56,7 @@ export default function TopicPage({
         <div className="flex flex-wrap items-baseline gap-x-3">
           <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
           <span className="text-sm text-muted">
-            {questions.length}問 ／ 〇 {ok}　要復習 {review.length}
+            {questions.length}問 ／ 卒業 {graduated}　要復習 {review.length}
           </span>
         </div>
       </header>
@@ -60,11 +64,14 @@ export default function TopicPage({
       <div className="grid gap-2.5 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => onStart(pick(questions, 7), style)}
-          className="min-h-16 rounded-2xl bg-accent px-5 py-4 text-left text-accent-ink shadow-sm transition-opacity hover:opacity-90"
+          disabled={active.length === 0}
+          onClick={() => onStart(pick(active, 7), style)}
+          className="min-h-16 rounded-2xl bg-accent px-5 py-4 text-left text-accent-ink shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          <div className="text-lg font-bold">{title}から7問</div>
-          <div className="text-xs opacity-80">ランダム・{STYLE_LABEL[style]}</div>
+          <div className="text-lg font-bold">{active.length > 0 ? `${title}から7問` : `${title}は全部卒業！`}</div>
+          <div className="text-xs opacity-80">
+            {active.length > 0 ? `卒業していない ${active.length}問からランダム・${STYLE_LABEL[style]}` : "下の「全部」で復習できます"}
+          </div>
         </button>
         <button
           type="button"
@@ -90,6 +97,17 @@ export default function TopicPage({
             </div>
           </Section>
         )}
+
+        <Section title="出題">
+          <div className="flex flex-wrap gap-2">
+            <Chip selected={!includeGraduated} onClick={() => setIncludeGraduated(false)}>
+              卒業していない問題
+            </Chip>
+            <Chip selected={includeGraduated} onClick={() => setIncludeGraduated(true)}>
+              卒業した問題もふくめて全部
+            </Chip>
+          </div>
+        </Section>
 
         <Section title="解き方">
           <div className="flex flex-wrap gap-2">
@@ -118,14 +136,14 @@ export default function TopicPage({
             onClick={() => onStart(pick(pool, count), style)}
             className="min-h-14 w-full rounded-2xl bg-accent px-5 text-lg font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {willAsk}問 スタート
+            {willAsk === 0 ? "条件に合う問題がありません" : `${willAsk}問 スタート`}
           </button>
           <button
             type="button"
             onClick={() =>
               onOpenList(
                 units.length ? `${title}（${units.join("・")}）` : title,
-                pool.map((q) => q.id),
+                inUnits.map((q) => q.id),
               )
             }
             className="min-h-12 w-full rounded-2xl border border-line bg-surface px-4 text-sm font-bold transition-colors hover:bg-surface-2"

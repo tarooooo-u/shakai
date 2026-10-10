@@ -1,9 +1,9 @@
 "use client";
 
-import { createLocalStore } from "./localStore";
+import { createProfileStore } from "./profiles";
 
-// ★を付けた問題の id（付けた順）
-const store = createLocalStore<string[]>("shakai-drill:favorites:v1", []);
+// ★を付けた問題の id（付けた順）。プロフィールごと
+const store = createProfileStore<string[]>("favorites:v1", []);
 
 export const useFavorites = store.use;
 

@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { QUESTIONS, QUESTION_BY_ID } from "@/data";
 import { useFavorites } from "@/lib/favorites";
-import { needsReview, useProgress } from "@/lib/progress";
+import { isGraduated, needsReview, removeLegacyData, useProgress } from "@/lib/progress";
+import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
 import { buildChoices, type Style } from "@/lib/session";
 import { CATEGORY_LABEL, UNITS, type Grade } from "@/lib/types";
 import Home from "./Home";
+import ProfileGate, { ProfileBadge } from "./ProfileGate";
 import QuestionList from "./QuestionList";
 import Quiz from "./Quiz";
 import Result from "./Result";
@@ -19,6 +21,8 @@ export type Session = {
   style: Style;
   /** 4択の選択肢（開始時に決めておく）。null の問題はカードで出す */
   choices: Record<string, string[] | null>;
+  /** 始めたときにもう卒業していた問題（結果画面で「今回卒業」を数えるため） */
+  graduatedBefore: string[];
 };
 
 /** サイドバーで選んだ画面の上に重ねて出すもの（演習・結果・一覧） */
@@ -31,6 +35,19 @@ type Overlay =
 const ALL_UNITS = Object.values(UNITS).flat();
 
 export default function App() {
+  const hydrated = useHydrated();
+  const profile = useCurrentProfile();
+
+  // プロフィールに分ける前の記録は使わない（リセット）
+  useEffect(removeLegacyData, []);
+
+  if (!hydrated) return null;
+  if (!profile) return <ProfileGate />;
+  // 人が変わったら画面の状態もすべて最初から
+  return <Main key={profile.id} profile={profile} />;
+}
+
+function Main({ profile }: { profile: Profile }) {
   const progress = useProgress();
   const favorites = useFavorites();
   const [page, setPage] = useState<Page>({ kind: "home" });
@@ -64,8 +81,9 @@ export default function App() {
         .filter((q) => style === "choice" || q.imageChoices)
         .map((q) => [q.id, buildChoices(q)]),
     );
+    const graduatedBefore = ids.filter((id) => isGraduated(progress[id]));
     setRunKey((k) => k + 1);
-    show({ kind: "quiz", session: { ids, style, choices } });
+    show({ kind: "quiz", session: { ids, style, choices, graduatedBefore } });
   };
   const openList = (title: string, ids: string[]) => show({ kind: "list", title, ids });
   const back = () => show(null);
@@ -88,7 +106,13 @@ export default function App() {
     if (overlay?.kind === "result") {
       const { session, results } = overlay;
       return (
-        <Result ids={session.ids} results={results} onRetry={(ids) => start(ids, session.style)} onHome={back} />
+        <Result
+          ids={session.ids}
+          results={results}
+          graduated={session.ids.filter((id) => isGraduated(progress[id]) && !session.graduatedBefore.includes(id))}
+          onRetry={(ids) => start(ids, session.style)}
+          onHome={back}
+        />
       );
     }
     if (overlay?.kind === "list") {
@@ -172,13 +196,13 @@ export default function App() {
     <div className="flex flex-1">
       {/* PC・iPad横向き：左に常に出す */}
       <div className="sticky top-0 hidden h-dvh shrink-0 md:block">
-        <Sidebar mode="rail" page={page} progress={progress} onNavigate={navigate} />
+        <Sidebar mode="rail" page={page} profile={profile} progress={progress} onNavigate={navigate} />
       </div>
 
       {/* スマホ・iPad縦向き：上に重ねて開く */}
       {drawerOpen && (
         <div className="fixed inset-0 z-40 flex md:hidden">
-          <Sidebar mode="drawer" page={page} progress={progress} onNavigate={navigate} onClose={() => setDrawerOpen(false)} />
+          <Sidebar mode="drawer" page={page} profile={profile} progress={progress} onNavigate={navigate} onClose={() => setDrawerOpen(false)} />
           <button type="button" aria-label="メニューを閉じる" className="flex-1 bg-black/30" onClick={() => setDrawerOpen(false)} />
         </div>
       )}
@@ -195,6 +219,15 @@ export default function App() {
           </button>
           <button type="button" onClick={() => navigate({ kind: "home" })} className="rounded-lg px-1 font-bold hover:text-accent">
             社会ドリル
+          </button>
+          <button
+            type="button"
+            onClick={leaveProfile}
+            aria-label={`${profile.name}（人を切りかえる）`}
+            className="ml-auto flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-bold hover:bg-surface-2"
+          >
+            <ProfileBadge profile={profile} size="sm" />
+            {profile.name}
           </button>
         </div>
         <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8">{content}</main>

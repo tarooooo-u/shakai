@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { GRADUATE_STREAK, statusOf, type QuestionRecord } from "@/lib/progress";
 import { CATEGORY_LABEL, DIFFICULTY_LABEL, type Category, type Difficulty, type Grade } from "@/lib/types";
 
 export const GRADE_META: Record<Grade, { mark: string; label: string; key: string }> = {
@@ -15,6 +16,21 @@ const GRADE_TEXT: Record<Grade, string> = {
 
 export function GradeMark({ grade }: { grade: Grade }) {
   return <span className={`font-bold ${GRADE_TEXT[grade]}`}>{GRADE_META[grade].mark}</span>;
+}
+
+/** 卒業までの進み具合。まだ解いていない問題には出さない */
+export function StatusBadge({ record }: { record: QuestionRecord | undefined }) {
+  const status = statusOf(record);
+  if (!record || status === "new") return null;
+  const [text, style] =
+    status === "graduated"
+      ? ["卒業ずみ", "border-ok/50 text-ok"]
+      : status === "check"
+        ? ["卒業の確認", "border-ok/50 text-ok"]
+        : record.streak > 0
+          ? [`あと${GRADUATE_STREAK - record.streak}回〇で卒業`, "border-line text-muted"]
+          : ["練習中", "border-line text-muted"];
+  return <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${style}`}>{text}</span>;
 }
 
 const DIFFICULTY_STYLE: Record<Difficulty, string> = {

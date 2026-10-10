@@ -5,6 +5,9 @@
 中学受験（最難関志望の小6）向け、社会の学習アプリ。将来は一般公開・マネタイズ予定（ログイン・Stripe）。
 
 - 今はクライアントのみ（静的書き出し → Cloudflare Pages）。学習記録は `lib/progress.ts` の localStorage
+  - きょうだいで同じ端末を使うため、ログインなしのプロフィール（`lib/profiles.ts`）ごとに保存。開くたびに「だれがやる？」を選ぶ
+  - 将来ログインを入れるときは「保護者アカウント（課金）の下に子どものプロフィール」の形にし、プロフィール id（UUID）の記録をそのまま取り込む
+  - 〇が2回続いたら「卒業」してふだんの出題から外れる。14日・30日・60日後に「確認」で1回出し、△・×なら卒業取り消し
 - 問題データは `content/questions/{history,geography,civics}.csv`。書式は `content/README.md`、単元は `content/units.json`
   - `scripts/build-questions.mjs` が検証して `data/questions.generated.json`（git 管理外）を作る
 - ロードマップと課題は `docs/社会学習roadmap.xlsx`

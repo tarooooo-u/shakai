@@ -7,11 +7,14 @@ import { GRADE_META, GradeMark } from "./ui";
 export default function Result({
   ids,
   results,
+  graduated,
   onRetry,
   onHome,
 }: {
   ids: string[];
   results: Record<string, Grade>;
+  /** この回で卒業した問題 */
+  graduated: string[];
   onRetry: (ids: string[]) => void;
   onHome: () => void;
 }) {
@@ -32,6 +35,12 @@ export default function Result({
           {ids.length}問中 〇 {ok}問
         </p>
       </header>
+
+      {graduated.length > 0 && (
+        <p className="rounded-2xl border-2 border-ok/50 bg-ok/10 px-4 py-3 text-center font-bold text-ok">
+          🎓 {graduated.length}問 卒業！（2回続けて〇）
+        </p>
+      )}
 
       <div className="grid grid-cols-3 gap-2.5">
         {(["ok", "unsure", "ng"] as Grade[]).map((g) => (

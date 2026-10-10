@@ -4,12 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { QUESTION_BY_ID } from "@/data";
 import { toggleFavorite, useFavorites } from "@/lib/favorites";
 import { judgeMap, type LatLng } from "@/lib/mapTask";
-import { recordGrade } from "@/lib/progress";
+import { recordGrade, useProgress } from "@/lib/progress";
 import type { Grade, Question } from "@/lib/types";
 import type { Session } from "./App";
 import MapTap, { mapFeedback } from "./MapTap";
 import RainTempChart from "./RainTempChart";
-import { CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META } from "./ui";
+import { CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META, StatusBadge } from "./ui";
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
 
@@ -35,6 +35,7 @@ export default function Quiz({
   const [pin, setPin] = useState<LatLng | null>(null);
   const [results, setResults] = useState<Record<string, Grade>>({});
   const favorites = useFavorites();
+  const progress = useProgress();
 
   const q = QUESTION_BY_ID.get(ids[index])!;
   const mapTask = q.mapTask;
@@ -134,6 +135,7 @@ export default function Quiz({
           <div className="flex flex-1 flex-wrap gap-2">
             <CategoryBadge category={q.category} sub={[q.unit, q.prefecture, q.kind].filter(Boolean).join("・")} />
             <DifficultyBadge difficulty={q.difficulty} />
+            <StatusBadge record={progress[q.id]} />
           </div>
           <FavoriteButton on={favorites.includes(q.id)} onClick={() => toggleFavorite(q.id)} />
         </div>

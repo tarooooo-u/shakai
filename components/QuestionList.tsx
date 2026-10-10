@@ -7,7 +7,7 @@ import type { Progress } from "@/lib/progress";
 import { shuffle } from "@/lib/session";
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/types";
 import RainTempChart from "./RainTempChart";
-import { DifficultyBadge, FavoriteButton, GradeMark } from "./ui";
+import { DifficultyBadge, FavoriteButton, GradeMark, StatusBadge } from "./ui";
 
 /** 問題と答えの一覧。保護者が口頭で出題したり、お気に入り・間違えた問題を見直したりする用 */
 export default function QuestionList({
@@ -125,6 +125,7 @@ export default function QuestionList({
                             <span className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
                               <span>{[q.unit, q.prefecture, q.kind].filter(Boolean).join("・")}</span>
                               <DifficultyBadge difficulty={q.difficulty} />
+                              <StatusBadge record={r} />
                               {r && (
                                 <span>
                                   これまで 〇{r.ok} △{r.unsure} ×{r.ng}

@@ -1,15 +1,16 @@
-import { needsReview, type Progress } from "./progress";
+import { isActive, needsReview, type Progress } from "./progress";
 import { CATEGORIES, DIFFICULTIES, type Category, type Difficulty, type Question } from "./types";
 
-export type Mode = "all" | "unseen" | "review" | "ng";
+export type Mode = "active" | "unseen" | "review" | "ng" | "all";
 /** card = 答えを見て自己採点 / choice = 4択 */
 export type Style = "card" | "choice";
 
 export const MODE_LABEL: Record<Mode, string> = {
-  all: "すべて",
+  active: "卒業していない問題",
   unseen: "まだ解いていない問題",
   review: "要復習（△・×）",
   ng: "×だけ",
+  all: "卒業した問題もふくめて全部",
 };
 
 export const STYLE_LABEL: Record<Style, string> = {
@@ -39,7 +40,7 @@ export const DEFAULT_FILTER: Filter = {
   kinds: [],
   difficulties: [...DIFFICULTIES],
   tags: [],
-  mode: "all",
+  mode: "active",
   count: 7,
   style: "card",
   shuffle: true,
@@ -48,6 +49,8 @@ export const DEFAULT_FILTER: Filter = {
 export function matchesMode(mode: Mode, q: Question, progress: Progress) {
   const r = progress[q.id];
   switch (mode) {
+    case "active":
+      return isActive(r);
     case "all":
       return true;
     case "unseen":

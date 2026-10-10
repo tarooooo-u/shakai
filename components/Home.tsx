@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { QUESTIONS } from "@/data";
-import { needsReview, resetProgress, type Progress } from "@/lib/progress";
+import { isActive, isGraduated, needsReview, resetProgress, statusOf, type Progress } from "@/lib/progress";
+import { useCurrentProfile } from "@/lib/profiles";
 import {
   DEFAULT_FILTER,
   MODE_LABEL,
@@ -47,6 +48,7 @@ export default function Home({
   onOpenReview: () => void;
 }) {
   const params = useSearchParams();
+  const profile = useCurrentProfile();
   // 保護者が送った URL（?u=江戸&n=7 など）で開いたときはその条件を初期値にする
   const [linked] = useState(() => filterFromQuery(new URLSearchParams(params.toString())));
   const [filter, setFilter] = useState<Filter>(linked ?? DEFAULT_FILTER);
@@ -58,25 +60,28 @@ export default function Home({
 
   const stats = useMemo(() => {
     const byCategory = Object.fromEntries(
-      CATEGORIES.map((c) => [c, { total: 0, ok: 0, review: 0 }]),
-    ) as Record<Category, { total: number; ok: number; review: number }>;
+      CATEGORIES.map((c) => [c, { total: 0, graduated: 0, review: 0 }]),
+    ) as Record<Category, { total: number; graduated: number; review: number }>;
     let seen = 0;
+    let check = 0;
     for (const q of QUESTIONS) {
       const r = progress[q.id];
       const s = byCategory[q.category];
       s.total++;
       if (r) seen++;
-      if (r?.grade === "ok") s.ok++;
+      if (isGraduated(r)) s.graduated++;
       if (needsReview(r)) s.review++;
+      if (statusOf(r) === "check") check++;
     }
     const review = CATEGORIES.reduce((n, c) => n + byCategory[c].review, 0);
-    const ok = CATEGORIES.reduce((n, c) => n + byCategory[c].ok, 0);
-    return { byCategory, seen, review, ok };
+    const graduated = CATEGORIES.reduce((n, c) => n + byCategory[c].graduated, 0);
+    return { byCategory, seen, review, graduated, check };
   }, [progress]);
 
   const matched = useMemo(() => QUESTIONS.filter((q) => matches(filter, q, progress)), [filter, progress]);
   const willAsk = filter.count > 0 ? Math.min(filter.count, matched.length) : matched.length;
   const reviewIds = QUESTIONS.filter((q) => needsReview(progress[q.id])).map((q) => q.id);
+  const activeIds = QUESTIONS.filter((q) => isActive(progress[q.id])).map((q) => q.id);
   const startFiltered = () => onStart(pickQuestions(QUESTIONS, filter, progress), filter.style);
 
   const copyLink = async () => {
@@ -94,7 +99,9 @@ export default function Home({
     <div className="space-y-7">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold sm:text-3xl">社会ドリル</h1>
-        <p className="text-sm text-muted">中学受験 社会の一問一答。答えを見て〇△×で自己採点、または4択で。</p>
+        <p className="text-sm text-muted">
+          中学受験 社会の一問一答。答えを見て〇△×で自己採点、または4択で。2回続けて〇なら「卒業」です。
+        </p>
       </header>
 
       {linked && (
@@ -115,7 +122,7 @@ export default function Home({
       {/* 全体の進み具合 */}
       <div className="grid grid-cols-3 gap-2.5">
         <Stat label="解いた" value={stats.seen} total={QUESTIONS.length} />
-        <Stat label="〇 完璧" value={stats.ok} tone="text-ok" />
+        <Stat label="卒業" value={stats.graduated} total={QUESTIONS.length} tone="text-ok" />
         <Stat label="要復習" value={stats.review} tone="text-ng" />
       </div>
 
@@ -123,11 +130,16 @@ export default function Home({
       <div className="grid gap-2.5 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => onStart(shuffle(QUESTIONS).slice(0, 7).map((q) => q.id), "card")}
-          className="min-h-16 rounded-2xl bg-accent px-5 py-4 text-left text-accent-ink shadow-sm transition-opacity hover:opacity-90"
+          disabled={activeIds.length === 0}
+          onClick={() => onStart(shuffle(activeIds).slice(0, 7), "card")}
+          className="min-h-16 rounded-2xl bg-accent px-5 py-4 text-left text-accent-ink shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          <div className="text-lg font-bold">サクッと7問</div>
-          <div className="text-xs opacity-80">全分野からランダム</div>
+          <div className="text-lg font-bold">{activeIds.length > 0 ? "サクッと7問" : "全部卒業！"}</div>
+          <div className="text-xs opacity-80">
+            {activeIds.length > 0
+              ? `卒業していない ${activeIds.length}問からランダム${stats.check > 0 ? `（確認の時期 ${stats.check}問）` : ""}`
+              : "「卒業した問題もふくめて全部」で復習できます"}
+          </div>
         </button>
         <button
           type="button"
@@ -174,11 +186,11 @@ export default function Home({
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
                     <div
                       className="h-full rounded-full bg-ok"
-                      style={{ width: `${s.total ? (s.ok / s.total) * 100 : 0}%` }}
+                      style={{ width: `${s.total ? (s.graduated / s.total) * 100 : 0}%` }}
                     />
                   </div>
                   <div className="mt-1 text-[11px] text-muted">
-                    〇{s.ok}　要復習{s.review}
+                    卒業{s.graduated}　要復習{s.review}
                   </div>
                 </button>
               );
@@ -336,7 +348,7 @@ export default function Home({
         <button
           type="button"
           onClick={() => {
-            if (window.confirm("この端末の学習記録をすべて消します。よろしいですか？")) resetProgress();
+            if (window.confirm(`${profile?.name ?? ""}さんの学習記録をすべて消します。よろしいですか？`)) resetProgress();
           }}
           className="text-xs text-muted underline-offset-4 hover:underline"
         >
