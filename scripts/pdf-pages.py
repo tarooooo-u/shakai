@@ -5,6 +5,8 @@
   python scripts/pdf-pages.py <PDF> <出力フォルダ> --pages 142-150 [--rotate 180] [--dpi 170]
       指定ページを上下半分ずつ高解像度で書き出す（p142_0.png = 142ページの上半分）
       スキャンが上下さかさまのページは --rotate 180
+      横向きにスキャンした見開き（塾テキストなど）は --rotate 90（文字がさかさまなら 270）。
+      このときは回転後の左右半分ずつ（＝テキスト1ページずつ）を書き出す
 
 必要なもの: pip install pymupdf
 """
@@ -31,6 +33,16 @@ def sheets(doc, out):
 
 
 def pages(doc, out, first, last, rotate, dpi):
+    if rotate in (90, 270):
+        # 横向きの見開き：元の上半分・下半分が、回転後の1ページずつになる
+        m = pymupdf.Matrix(dpi / 72, dpi / 72).prerotate(rotate)
+        for n in range(first, last + 1):
+            r = doc[n - 1].rect
+            for k, (y0, y1) in enumerate([(0, 0.52), (0.48, 1)]):
+                clip = pymupdf.Rect(0, r.height * y0, r.width, r.height * y1)
+                doc[n - 1].get_pixmap(matrix=m, clip=clip).save(os.path.join(out, f"p{n}_{k}.png"))
+        print(f"p{first}-p{last} を {out} に書き出しました")
+        return
     tmp = pymupdf.open()
     for n in range(first, last + 1):
         r = doc[n - 1].rect
