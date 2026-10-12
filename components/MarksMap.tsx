@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent } from "react";
-import type { Place } from "@/lib/mapSets";
+import { useEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { unitsToPlace, type Place } from "@/lib/mapSets";
 import { Loupe, MapLayers, getProjection, toMapPoint, useLoupe, type Projection } from "./mapBase";
 
 /**
@@ -38,15 +38,7 @@ export default function MarksMap({
   const [hover, setHover] = useState<string | null>(null);
   const { loupe, update: updateLoupe, hide: hideLoupe } = useLoupe(svg);
   const P = getProjection(extent);
-  // 地図が小さく表示されるとき（スマホ）は、印・線・名前を太く大きくする
-  const [size, setSize] = useState(1);
-  useEffect(() => {
-    const el = svg.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setSize(Math.max(1, (0.8 * P.W) / Math.max(1, el.clientWidth))));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [P.W]);
+  const size = useMarkSize(svg, P.W);
 
   // いちばん近い印（HIT_PX より遠ければなし）
   const nearest = (e: PointerEvent<SVGSVGElement>) => {
@@ -55,7 +47,7 @@ export default function MarksMap({
     let best: string | null = null;
     let bestD = HIT_PX / pt.pxPerUnit;
     for (const { place } of marks) {
-      const d = distance(P, place, pt.x, pt.y);
+      const d = unitsToPlace(extent, place, pt.x, pt.y);
       if (d < bestD) [best, bestD] = [place.id, d];
     }
     return best;
@@ -70,19 +62,7 @@ export default function MarksMap({
   };
 
   const shown = onPick && hover ? marks.map((m) => (m.place.id === hover ? { ...m, tone: "target" as const } : m)) : marks;
-  const draw = (sw: number) => (
-    <>
-      {/* うすい印を下に、光らせる印を上に描く */}
-      {[...shown]
-        .sort((a, b) => order(a.tone) - order(b.tone))
-        .map((m) => (
-          <MarkShape key={m.place.id} P={P} mark={m} sw={sw * size} />
-        ))}
-      {shown.filter((m) => m.label).map((m) => (
-        <MarkLabel key={m.place.id} P={P} mark={m} sw={sw * size} />
-      ))}
-    </>
-  );
+  const draw = (sw: number) => <MarkLayer P={P} marks={shown} sw={sw * size} />;
 
   return (
     <>
@@ -119,24 +99,38 @@ export default function MarksMap({
   );
 }
 
+/** 地図が小さく表示されるとき（スマホ）は、印・線・名前を太く大きくする。線の太さなどの倍率を返す */
+export function useMarkSize(svg: RefObject<SVGSVGElement | null>, W: number) {
+  const [size, setSize] = useState(1);
+  useEffect(() => {
+    const el = svg.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setSize(Math.max(1, (0.8 * W) / Math.max(1, el.clientWidth))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [svg, W]);
+  return size;
+}
+
+/** 印と名前をまとめて描く。うすい印を下に、光らせる印を上に描く */
+export function MarkLayer({ P, marks, sw }: { P: Projection; marks: Mark[]; sw: number }) {
+  return (
+    <>
+      {[...marks]
+        .sort((a, b) => order(a.tone) - order(b.tone))
+        .map((m) => (
+          <MarkShape key={m.place.id} P={P} mark={m} sw={sw} />
+        ))}
+      {marks.filter((m) => m.label).map((m) => (
+        <MarkLabel key={m.place.id} P={P} mark={m} sw={sw} />
+      ))}
+    </>
+  );
+}
+
 const order = (t: MarkTone) => ["faded", "done", "normal", "ng", "ok", "target"].indexOf(t);
 
 const pts = (P: Projection, place: Place) => place.coords.map(({ lat, lng }) => [P.x(lng), P.y(lat)] as const);
-
-function distance(P: Projection, place: Place, px: number, py: number) {
-  const p = pts(P, place);
-  if (p.length === 1) return Math.hypot(px - p[0][0], py - p[0][1]);
-  let best = Infinity;
-  for (let i = 0; i + 1 < p.length; i++) {
-    const [ax, ay] = p[i];
-    const [bx, by] = p[i + 1];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1)));
-    best = Math.min(best, Math.hypot(px - ax - t * dx, py - ay - t * dy));
-  }
-  return best;
-}
 
 function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
   const { tone, place } = mark;

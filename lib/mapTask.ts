@@ -23,7 +23,26 @@ export type MapVerdict = "ok" | "close" | "ng";
 /** 地図に出す範囲。経線・緯線がまっすぐ縦・横に並ぶ図法（正距円筒図法）で描く */
 export const MAP_EXTENTS: Record<string, MapExtent> = extents;
 
-const KM_PER_DEG = 111.2;
+export const KM_PER_DEG = 111.2;
+
+/** 地図の横はば。どの範囲でもこの長さで描く（ピンや線の太さをそろえるため） */
+export const MAP_WIDTH = 800;
+
+/**
+ * 正距円筒図法：経線は縦、緯線は横のまっすぐな線になる。
+ * まん中の緯度で横をちぢめて、形が横に太らないようにする。
+ * scale は緯度1度の長さ。scripts/build-mapsets.mjs にも同じ式がある
+ */
+export function planar(E: MapExtent) {
+  const k = Math.cos((((E.south + E.north) / 2) * Math.PI) / 180);
+  const scale = MAP_WIDTH / ((E.east - E.west) * k);
+  return {
+    k,
+    scale,
+    x: (lng: number) => (lng - E.west) * k * scale,
+    y: (lat: number) => (E.north - lat) * scale,
+  };
+}
 
 export function distanceKm(a: LatLng, b: LatLng) {
   const r = Math.PI / 180;

@@ -2,7 +2,7 @@
 // ふだんの問題（content/questions）とは別。地名は content/maps/places.csv、セットは sets.csv。
 // 学習記録は「地名 × 答え方」ごと（例: p0004@pick）。同じ地名が別のセットに入っていても記録は1つ。
 import { isActive, isGraduated, type Progress } from "./progress";
-import type { LatLng } from "./mapTask";
+import { KM_PER_DEG, MAP_EXTENTS, planar, type LatLng, type MapVerdict } from "./mapTask";
 import { shuffle, type Style } from "./session";
 
 export type Place = {
@@ -30,13 +30,14 @@ export type MapSet = {
 /**
  * pick = 名前を見て、地図の印をえらぶ（B）
  * name = 光っている印の名前を答える（A。カードか4択）
- * 将来：locate = 印のない地図で場所をタップする（C）
+ * locate = 印のない地図で、場所をタップする（C）
  */
-export type MapMode = "pick" | "name";
+export type MapMode = "pick" | "name" | "locate";
 
 export const MAP_MODE_LABEL: Record<MapMode, string> = {
   pick: "地図でえらぶ",
   name: "名前を答える",
+  locate: "場所をタップ",
 };
 
 export const recordKey = (placeId: string, mode: MapMode) => `${placeId}@${mode}`;
@@ -78,4 +79,57 @@ export function setProgress(set: MapSet, mode: MapMode, progress: Progress) {
     seen: records.filter(Boolean).length,
     graduated: records.filter(isGraduated).length,
   };
+}
+
+// ───── 場所をタップ（locate）の判定 ─────
+// 地図の上の長さ（横はば 800 のときの単位）で判定する。地図の範囲ごとの許すはば（extents.json の tolKm）を使うが、
+// 全国・北海道のように広い地図では km だと小さくなりすぎるので、地図の上で最低 LOCATE_MIN_UNITS にする。
+// 山脈の線は長くて当てやすいので、許すはばを LOCATE_LINE_FACTOR 倍にせまくする。
+// 同じ式を scripts/build-mapsets.mjs でも使っている（勘で当たる確率のチェック）。変えるときは両方そろえる。
+
+export const LOCATE_MIN_UNITS = 36;
+export const LOCATE_LINE_FACTOR = 0.7;
+
+/** 地名の印（点か線）までの、地図の上の長さ */
+export function unitsToPlace(extent: string, place: Place, x: number, y: number) {
+  const P = planar(MAP_EXTENTS[extent]);
+  const p = place.coords.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
+  if (p.length === 1) return Math.hypot(x - p[0][0], y - p[0][1]);
+  let best = Infinity;
+  for (let i = 0; i + 1 < p.length; i++) {
+    const [ax, ay] = p[i];
+    const [bx, by] = p[i + 1];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return best;
+}
+
+/** 正解にする範囲（地図の上の長さ） */
+export function locateTolerance(extent: string, place: Place) {
+  const E = MAP_EXTENTS[extent] as (typeof MAP_EXTENTS)[string] & { tolKm: number };
+  const base = Math.max((E.tolKm / KM_PER_DEG) * planar(E).scale, LOCATE_MIN_UNITS);
+  return place.coords.length === 1 ? base : base * LOCATE_LINE_FACTOR;
+}
+
+/**
+ * ok = 正解 / close = おしい（許すはばの2倍まで。記録は×）/ ng = ちがう。
+ * ほかの地名の範囲に入っていたら ng（other にその地名）
+ */
+export function judgeLocate(set: MapSet, target: Place, pin: LatLng, places: Map<string, Place>) {
+  const P = planar(MAP_EXTENTS[set.extent]);
+  const [x, y] = [P.x(pin.lng), P.y(pin.lat)];
+  const d = unitsToPlace(set.extent, target, x, y);
+  const tol = locateTolerance(set.extent, target);
+  const other = set.places
+    .filter((id) => id !== target.id)
+    .map((id) => places.get(id)!)
+    .find((p) => {
+      const dp = unitsToPlace(set.extent, p, x, y);
+      return dp < d && dp <= locateTolerance(set.extent, p);
+    });
+  const verdict: MapVerdict = other ? "ng" : d <= tol ? "ok" : d <= tol * 2 ? "close" : "ng";
+  return { verdict, km: (d / P.scale) * KM_PER_DEG, other };
 }

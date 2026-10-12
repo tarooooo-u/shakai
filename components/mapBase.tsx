@@ -3,22 +3,13 @@
 import { useId, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import japan from "@/content/maps/japan.json";
-import { MAP_EXTENTS, type MapExtent } from "@/lib/mapTask";
+import { MAP_EXTENTS, MAP_WIDTH, planar, type MapExtent } from "@/lib/mapTask";
 
 // 白地図の描画（地図問題・地図セットで共通）と、タブレット・スマホ用の拡大鏡
 
-// 地図の横はばは、どの範囲でもこの長さ（ピンや線の太さをそろえるため）
-const WIDTH = 800;
-
-/**
- * 正距円筒図法：経線は縦、緯線は横のまっすぐな線になる。
- * まん中の緯度で横をちぢめて、形が横に太らないようにする
- */
+/** 白地図の描画に使う、地図の範囲ごとの座標変換とパス */
 function projection(E: MapExtent) {
-  const k = Math.cos((((E.south + E.north) / 2) * Math.PI) / 180);
-  const scale = WIDTH / ((E.east - E.west) * k);
-  const x = (lng: number) => (lng - E.west) * k * scale;
-  const y = (lat: number) => (E.north - lat) * scale;
+  const { k, scale, x, y } = planar(E);
   const overlaps = (r: number[][]) =>
     r.some(([lng]) => lng >= E.west - 1) &&
     r.some(([lng]) => lng <= E.east + 1) &&
@@ -32,7 +23,7 @@ function projection(E: MapExtent) {
   return {
     E,
     scale,
-    W: WIDTH,
+    W: MAP_WIDTH,
     H: (E.north - E.south) * scale,
     x,
     y,

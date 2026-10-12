@@ -7,11 +7,12 @@ import type { Progress } from "@/lib/progress";
 import { STYLE_LABEL, type Style } from "@/lib/session";
 import { Chip, Section } from "./ui";
 
-/** 答え方の選び方（B → A の順におすすめ） */
+/** 答え方の選び方（地図でえらぶ → 名前を答える → 場所をタップ の順にむずかしくなる） */
 const WAYS: { mode: MapMode; style: Style; label: string; note: string }[] = [
   { mode: "pick", style: "card", label: MAP_MODE_LABEL.pick, note: "名前を見て、地図の印をタップ" },
   { mode: "name", style: "choice", label: `${MAP_MODE_LABEL.name}（${STYLE_LABEL.choice}）`, note: "光っている印の名前を4つからえらぶ" },
   { mode: "name", style: "card", label: `${MAP_MODE_LABEL.name}（カード）`, note: "光っている印の名前を思い出して、自己採点" },
+  { mode: "locate", style: "card", label: MAP_MODE_LABEL.locate, note: "印のない地図で、場所をタップしてピンを立てる（いちばんむずかしい）" },
 ];
 
 /** 白地図ドリル：地図セットを選ぶ画面 */

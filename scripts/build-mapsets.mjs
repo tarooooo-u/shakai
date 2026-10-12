@@ -16,6 +16,12 @@ const MIN_MARKS = 4;
 const MAX_MARKS = 10;
 // 印どうしがこれより近いと見分けにくい（地図の横はば 800 のときの長さ）
 const MIN_GAP = 24;
+// 場所をタップ（locate）の許すはば。lib/mapSets.ts と同じ値にする
+const LOCATE_MIN_UNITS = 36;
+const LOCATE_LINE_FACTOR = 0.7;
+// 場所をタップで、陸地をでたらめにタップして正解になる割合の上限（長い山脈はどうしても高くなる）
+const MAX_GUESS = 0.16;
+const JAPAN_MAP = JSON.parse(readFileSync(join(MAPS, "japan.json"), "utf8"));
 
 const errors = [];
 const warnings = [];
@@ -90,6 +96,29 @@ const samples = (pts) => {
 const distTo = (p, pts) => (pts.length === 1 ? Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]) : Math.min(...pts.slice(1).map((b, i) => segDist(p, pts[i], b))));
 const gap = (a, b) => Math.min(...samples(a).map((p) => distTo(p, b)), ...samples(b).map((p) => distTo(p, a)));
 
+// 地図の範囲の中の陸地に細かく点を置く（勘で当たる確率を数えるため）
+const LAND = new Map();
+function landPoints(E) {
+  if (LAND.has(E)) return LAND.get(E);
+  const inside = (ring, x, y) => {
+    let c = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i];
+      const [xj, yj] = ring[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  };
+  const boxes = JAPAN_MAP.japan.map((r) => [r, Math.min(...r.map((p) => p[0])), Math.max(...r.map((p) => p[0])), Math.min(...r.map((p) => p[1])), Math.max(...r.map((p) => p[1]))]);
+  const step = Math.min(E.east - E.west, E.north - E.south) / 150;
+  const points = [];
+  for (let lat = E.south; lat <= E.north; lat += step)
+    for (let lng = E.west; lng <= E.east; lng += step)
+      if (boxes.some(([r, x0, x1, y0, y1]) => lng >= x0 && lng <= x1 && lat >= y0 && lat <= y1 && inside(r, lng, lat))) points.push([lat, lng]);
+  LAND.set(E, points);
+  return points;
+}
+
 // ───── 地図セット ─────
 const sets = [];
 const used = new Set();
@@ -120,6 +149,25 @@ for (const { line, r } of read("sets.csv")) {
       const d = gap(members[i].coords.map(proj), members[j].coords.map(proj));
       if (d < MIN_GAP) warnings.push(`sets.csv:${line} [${r.id}] 「${members[i].name}」と「${members[j].name}」の印が近すぎて見分けにくい（${d.toFixed(0)}）。地方の地図にするか、どちらかを外してください`);
     }
+  // 場所をタップ：陸地をでたらめにタップしたとき、それぞれの地名で正解になる割合
+  if (members.length === names.length) {
+    const scale = 800 / ((E.east - E.west) * Math.cos((((E.south + E.north) / 2) * Math.PI) / 180));
+    const base = Math.max((E.tolKm / 111.2) * scale, LOCATE_MIN_UNITS);
+    const marks = members.map((p) => ({ p, pts: p.coords.map(proj), tol: p.coords.length === 1 ? base : base * LOCATE_LINE_FACTOR }));
+    const hits = marks.map(() => 0);
+    const land = landPoints(E);
+    for (const [lat, lng] of land) {
+      const q = proj({ lat, lng });
+      // 判定は lib/mapSets.ts の judgeLocate と同じ：いちばん近い地名の範囲に入っていれば、その地名の正解
+      const d = marks.map((m) => distTo(q, m.pts));
+      const n = d.indexOf(Math.min(...d));
+      if (d[n] <= marks[n].tol) hits[n]++;
+    }
+    marks.forEach((m, i) => {
+      const rate = hits[i] / land.length;
+      if (rate > MAX_GUESS) warnings.push(`sets.csv:${line} [${r.id}] 場所をタップで「${m.p.name}」が勘で当たる確率 ${(rate * 100).toFixed(1)}% が高い（${MAX_GUESS * 100}%まで）`);
+    });
+  }
   sets.push({ id: r.id, title: r.名前, extent: r.地図, places: members.map((p) => p.id) });
 }
 for (const p of places) if (!used.has(p.id)) warnings.push(`places.csv [${p.id}] 「${p.name}」はどのセットにも入っていません`);

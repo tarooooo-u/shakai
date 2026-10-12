@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { MAP_SETS, PLACE_BY_ID } from "@/data";
-import { recordKey, type MapRun, type Place } from "@/lib/mapSets";
+import { judgeLocate, locateTolerance, recordKey, type MapRun, type Place } from "@/lib/mapSets";
+import type { LatLng } from "@/lib/mapTask";
 import { recordGrade, useProgress } from "@/lib/progress";
 import type { Grade } from "@/lib/types";
+import LocateMap from "./LocateMap";
 import MarksMap, { type Mark } from "./MarksMap";
 import { GRADE_META, StatusBadge } from "./ui";
 
@@ -20,6 +22,7 @@ const GRADE_BUTTON: Record<Grade, string> = {
  * 白地図ドリルの1回分。1枚の地図の印を、1つずつ答えていく。
  *   pick … 名前を見て、地図の印をタップ（自動で採点）
  *   name … 光っている印の名前を答える（カードは自己採点、4択は自動で採点）
+ *   locate … 印のない地図で、場所をタップしてピンを立てる（自動で採点）
  */
 export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (results: Record<string, Grade>) => void }) {
   const set = MAP_SETS.find((s) => s.id === run.setId)!;
@@ -28,39 +31,39 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
   const [revealed, setRevealed] = useState(false);
   // pick：タップした印の id／name の4択：えらんだ名前
   const [picked, setPicked] = useState<string | null>(null);
+  // locate：立てたピン
+  const [pin, setPin] = useState<LatLng | null>(null);
   const [results, setResults] = useState<Record<string, Grade>>({});
   const progress = useProgress();
 
   const target = PLACE_BY_ID.get(targets[index])!;
   const options = mode === "name" ? (run.choices[target.id] ?? null) : null;
-  const auto = mode === "pick" || options !== null;
-  const correct = mode === "pick" ? picked === target.id : picked === target.name;
+  const auto = mode !== "name" || options !== null;
+  const located = mode === "locate" && revealed && pin ? judgeLocate(set, target, pin, PLACE_BY_ID) : null;
+  const correct = located ? located.verdict === "ok" : mode === "pick" ? picked === target.id : picked === target.name;
 
-  const grade = useCallback(
-    (g: Grade) => {
-      recordGrade(recordKey(target.id, mode), g);
-      const next = { ...results, [target.id]: g };
-      setResults(next);
-      if (index + 1 >= targets.length) {
-        onFinish(next);
-      } else {
-        setIndex(index + 1);
-        setRevealed(false);
-        setPicked(null);
-      }
-    },
-    [target.id, mode, results, index, targets.length, onFinish, setRevealed],
-  );
+  const grade = (g: Grade) => {
+    recordGrade(recordKey(target.id, mode), g);
+    const next = { ...results, [target.id]: g };
+    setResults(next);
+    if (index + 1 >= targets.length) {
+      onFinish(next);
+    } else {
+      setIndex(index + 1);
+      setRevealed(false);
+      setPicked(null);
+      setPin(null);
+    }
+  };
 
-  const pick = useCallback(
-    (value: string) => {
-      setPicked(value);
-      setRevealed(true);
-    },
-    [setRevealed],
-  );
+  const pick = (value: string) => {
+    setPicked(value);
+    setRevealed(true);
+  };
 
-  // キーボード：4択は 1〜4、カードは Space で答え → 1/2/3、自動採点のあとは Enter で次へ（正解なら 2 で「まぐれ」）、Esc で終了
+  // キーボード：4択は 1〜4、カードは Space で答え → 1/2/3、場所をタップはピンを立てて Enter で決定、
+  // 自動採点のあとは Enter で次へ（正解なら 2 で「まぐれ」）、Esc で終了。
+  // 毎回の描画のあとに付け直す（いまの問題・状態で動くように）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -70,6 +73,7 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
       if (!revealed) {
         const i = Number(e.key) - 1;
         if (options && i >= 0 && i < options.length) pick(options[i]);
+        else if (mode === "locate" && enter && pin) setRevealed(true);
         else if (!auto && enter) setRevealed(true);
         else handled = false;
       } else if (auto) {
@@ -85,7 +89,7 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [options, auto, revealed, correct, pick, grade, onFinish, results]);
+  });
 
   const marks: Mark[] = set.places.map((id) => {
     const place = PLACE_BY_ID.get(id)!;
@@ -120,11 +124,11 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
           <StatusBadge record={progress[recordKey(target.id, mode)]} />
         </div>
 
-        {mode === "pick" ? (
+        {mode !== "name" ? (
           <p className="text-lg leading-relaxed font-semibold sm:text-xl">
             <span className="text-accent">{target.name}</span>
             {target.reading && <span className="ml-1 text-sm font-normal text-muted">（{target.reading}）</span>}
-            はどれ？
+            {mode === "pick" ? "はどれ？" : "はどこ？"}
           </p>
         ) : (
           <p className="text-lg leading-relaxed font-semibold sm:text-xl">
@@ -132,8 +136,33 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
           </p>
         )}
 
-        <MarksMap extent={set.extent} marks={marks} onPick={mode === "pick" && !revealed ? pick : undefined} />
+        {mode === "locate" ? (
+          <LocateMap
+            extent={set.extent}
+            marks={marks.filter((m) => m.tone === "done")}
+            pin={pin}
+            onPin={setPin}
+            answer={located ? { place: target, tol: locateTolerance(set.extent, target), verdict: located.verdict } : undefined}
+          />
+        ) : (
+          <MarksMap extent={set.extent} marks={marks} onPick={mode === "pick" && !revealed ? pick : undefined} />
+        )}
         {mode === "pick" && !revealed && <p className="text-center text-sm text-muted">地図の印をタップしよう。</p>}
+        {mode === "locate" && !revealed && (
+          <>
+            <p className="text-center text-sm text-muted">
+              地図をタップしてピンを立てよう。ドラッグで動かせるよ。{target.coords.length > 1 && "山脈・山地は、線のどこかに立てればOK。"}
+            </p>
+            <button
+              type="button"
+              disabled={!pin}
+              onClick={() => setRevealed(true)}
+              className="min-h-14 w-full rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              けってい
+            </button>
+          </>
+        )}
 
         {options && (
           <div className="grid gap-2 sm:grid-cols-2">
@@ -162,7 +191,18 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
         )}
 
         {revealed ? (
-          <PlaceExplanation place={target} verdict={auto ? (correct ? "正解！" : "ざんねん") : undefined} />
+          <PlaceExplanation
+            place={target}
+            verdict={located ? LOCATE_VERDICT[located.verdict] : auto ? (correct ? "正解！" : "ざんねん") : undefined}
+            note={
+              located &&
+              (located.other
+                ? `きみのピンは「${located.other.name}」のあたり`
+                : located.km < 5
+                  ? "ほぼぴったり"
+                  : `きみのピンは約${Math.round(located.km)}kmはなれていた`)
+            }
+          />
         ) : (
           !auto && (
             <button
@@ -216,7 +256,9 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
   );
 }
 
-function PlaceExplanation({ place, verdict }: { place: Place; verdict?: string }) {
+const LOCATE_VERDICT = { ok: "正解！", close: "おしい！", ng: "ざんねん" };
+
+function PlaceExplanation({ place, verdict, note }: { place: Place; verdict?: string; note?: string | null }) {
   return (
     <div className="space-y-3 border-t border-line pt-4">
       <div>
@@ -225,6 +267,7 @@ function PlaceExplanation({ place, verdict }: { place: Place; verdict?: string }
           {place.name}
           {place.reading && <span className="ml-2 text-base font-semibold text-muted">{place.reading}</span>}
         </div>
+        {note && <div className="mt-1 text-sm font-semibold text-muted">{note}</div>}
       </div>
       {place.kanjiNote && (
         <div className="rounded-xl bg-note px-4 py-3 text-sm text-note-ink">
