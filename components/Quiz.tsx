@@ -13,6 +13,9 @@ import { CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META, StatusBadge
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
 
+/** 複数の画像に付ける記号 */
+const KANA = ["ア", "イ", "ウ", "エ", "オ", "カ"];
+
 const GRADE_BUTTON: Record<Grade, string> = {
   ok: "border-ok text-ok hover:bg-ok/10",
   unsure: "border-unsure text-unsure hover:bg-unsure/10",
@@ -150,6 +153,21 @@ export default function Quiz({
             <img src={q.imageUrl} alt="問題の画像" loading="lazy" className="mx-auto max-h-80 rounded-xl border border-line" />
             {q.imageCredit && <figcaption className="text-center text-[11px] text-muted">{q.imageCredit}</figcaption>}
           </figure>
+        )}
+
+        {q.images && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {q.images.map((im, i) => (
+              <figure key={im.src} className="relative space-y-1 rounded-2xl border border-line bg-surface p-1.5">
+                <span className="absolute top-2 left-2 z-10 flex size-7 items-center justify-center rounded-full bg-ink/70 text-sm font-bold text-white">
+                  {KANA[i]}
+                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
+                <img src={im.src} alt={`${KANA[i]}の画像`} loading="lazy" className="aspect-[4/3] w-full rounded-xl object-contain bg-surface-2" />
+                <figcaption className="text-center text-[10px] text-muted">{im.credit}</figcaption>
+              </figure>
+            ))}
+          </div>
         )}
 
         {mapTask && (

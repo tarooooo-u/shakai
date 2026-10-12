@@ -180,12 +180,20 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       if (!climate) err(`雨温図の地点番号「${r.画像.slice(8)}」が content/climate/normals.csv にありません`);
     }
 
-    // 画像列：「img:名前」→ その画像を表示、「choices」→ 答えと誤答選択肢を画像で並べる
+    // 画像列：「img:名前」→ その画像を表示、「imgs:名前|名前|…」→ 複数の画像にア・イ・ウ…を付けて並べる、
+    // 「choices」→ 答えと誤答選択肢を画像で並べる
     let image;
+    let images;
     let imageChoices;
     if (r.画像.startsWith("img:")) {
       image = pic(r.画像.slice(4));
       if (!image) err(`画像「${r.画像.slice(4)}」が content/images.csv にありません`);
+    } else if (r.画像.startsWith("imgs:")) {
+      const names = list(r.画像.slice(5));
+      const missing = names.filter((n) => !IMAGES.has(n));
+      if (names.length < 2 || names.length > 6) err("imgs: の画像は 2〜6 枚");
+      else if (missing.length) err(`画像がありません：${missing.join("、")}`);
+      else images = names.map(pic);
     } else if (r.画像 === "choices") {
       const names = [r.答え, ...list(r.誤答選択肢)];
       const missing = names.filter((n) => !IMAGES.has(n));
@@ -235,7 +243,8 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       explanation: r.解説,
       ...(r.漢字注意 && { kanjiNote: r.漢字注意 }),
       tags: list(r.タグ),
-      ...(r.画像 && !climate && !image && !imageChoices && { imageUrl: r.画像 }),
+      ...(r.画像 && !climate && !image && !images && !imageChoices && { imageUrl: r.画像 }),
+      ...(images && { images }),
       ...(image && { imageUrl: image.src, imageCredit: image.credit }),
       ...(imageChoices && { imageChoices }),
       ...(climate && { climate }),
