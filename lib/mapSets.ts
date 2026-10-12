@@ -9,10 +9,11 @@ export type Place = {
   id: string;
   name: string;
   reading?: string;
-  /** 山地・山脈 / 火山 */
+  /** 山地・山脈 / 火山 / 河川 / 平野 */
   kind: string;
-  /** 1点なら▲、2点以上なら線 */
+  /** 1点なら▲、2点以上なら線。area なら点で囲んだ面（平野） */
   coords: LatLng[];
+  area?: boolean;
   explanation: string;
   kanjiNote?: string;
   source?: string;
@@ -89,12 +90,29 @@ export function setProgress(set: MapSet, mode: MapMode, progress: Progress) {
 
 export const LOCATE_MIN_UNITS = 36;
 export const LOCATE_LINE_FACTOR = 0.7;
+/** 平野（面）は中に立てれば正解なので、まわりの許すはばはせまくする */
+export const LOCATE_AREA_FACTOR = 0.5;
 
-/** 地名の印（点か線）までの、地図の上の長さ */
+/** 点 (x, y) が多角形の中にあるか */
+export function insidePolygon(p: number[][], x: number, y: number) {
+  let c = false;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+    const [xi, yi] = p[i];
+    const [xj, yj] = p[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+
+/** 地名の印（点・線・面）までの、地図の上の長さ。面の中なら 0 */
 export function unitsToPlace(extent: string, place: Place, x: number, y: number) {
   const P = planar(MAP_EXTENTS[extent]);
   const p = place.coords.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
   if (p.length === 1) return Math.hypot(x - p[0][0], y - p[0][1]);
+  if (place.area) {
+    if (insidePolygon(p, x, y)) return 0;
+    p.push(p[0]);
+  }
   let best = Infinity;
   for (let i = 0; i + 1 < p.length; i++) {
     const [ax, ay] = p[i];
@@ -111,12 +129,13 @@ export function unitsToPlace(extent: string, place: Place, x: number, y: number)
 export function locateTolerance(extent: string, place: Place) {
   const E = MAP_EXTENTS[extent] as (typeof MAP_EXTENTS)[string] & { tolKm: number };
   const base = Math.max((E.tolKm / KM_PER_DEG) * planar(E).scale, LOCATE_MIN_UNITS);
-  return place.coords.length === 1 ? base : base * LOCATE_LINE_FACTOR;
+  return place.area ? base * LOCATE_AREA_FACTOR : place.coords.length === 1 ? base : base * LOCATE_LINE_FACTOR;
 }
 
 /**
  * ok = 正解 / close = おしい（許すはばの2倍まで。記録は×）/ ng = ちがう。
- * ほかの地名の範囲に入っていたら ng（other にその地名）
+ * ほかの地名の範囲に入っていたら ng（other にその地名）。
+ * ただし平野（面）とそれ以外はくらべない（平野の中を川が流れているので）
  */
 export function judgeLocate(set: MapSet, target: Place, pin: LatLng, places: Map<string, Place>) {
   const P = planar(MAP_EXTENTS[set.extent]);
@@ -126,6 +145,7 @@ export function judgeLocate(set: MapSet, target: Place, pin: LatLng, places: Map
   const other = set.places
     .filter((id) => id !== target.id)
     .map((id) => places.get(id)!)
+    .filter((p) => !p.area === !target.area)
     .find((p) => {
       const dp = unitsToPlace(set.extent, p, x, y);
       return dp < d && dp <= locateTolerance(set.extent, p);

@@ -40,17 +40,21 @@ export default function MarksMap({
   const P = getProjection(extent);
   const size = useMarkSize(svg, P.W);
 
-  // いちばん近い印（HIT_PX より遠ければなし）
+  // いちばん近い印（HIT_PX より遠ければなし）。平野の中を流れる川もえらべるように、線・点を平野より先にさがす
   const nearest = (e: PointerEvent<SVGSVGElement>) => {
     const pt = toMapPoint(svg.current, e);
     if (!pt) return null;
-    let best: string | null = null;
-    let bestD = HIT_PX / pt.pxPerUnit;
-    for (const { place } of marks) {
-      const d = unitsToPlace(extent, place, pt.x, pt.y);
-      if (d < bestD) [best, bestD] = [place.id, d];
+    for (const areas of [false, true]) {
+      let best: string | null = null;
+      let bestD = HIT_PX / pt.pxPerUnit;
+      for (const { place } of marks) {
+        if (!place.area !== !areas) continue;
+        const d = unitsToPlace(extent, place, pt.x, pt.y);
+        if (d < bestD) [best, bestD] = [place.id, d];
+      }
+      if (best) return best;
     }
-    return best;
+    return null;
   };
   const track = (e: PointerEvent<SVGSVGElement>) => {
     setHover(nearest(e));
@@ -112,12 +116,12 @@ export function useMarkSize(svg: RefObject<SVGSVGElement | null>, W: number) {
   return size;
 }
 
-/** 印と名前をまとめて描く。うすい印を下に、光らせる印を上に描く */
+/** 印と名前をまとめて描く。平野（面）を下に、その上に線・点。うすい印を下に、光らせる印を上に描く */
 export function MarkLayer({ P, marks, sw }: { P: Projection; marks: Mark[]; sw: number }) {
   return (
     <>
       {[...marks]
-        .sort((a, b) => order(a.tone) - order(b.tone))
+        .sort((a, b) => (a.place.area ? 0 : 10) + order(a.tone) - (b.place.area ? 0 : 10) - order(b.tone))
         .map((m) => (
           <MarkShape key={m.place.id} P={P} mark={m} sw={sw} />
         ))}
@@ -155,6 +159,23 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
     );
   }
   const points = p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  if (place.area)
+    return (
+      <g opacity={opacity}>
+        <polygon
+          points={points}
+          fill={color}
+          fillOpacity={glow ? 0.35 : 0.16}
+          stroke={color}
+          strokeWidth={(glow ? 3 : 2) * sw}
+          strokeDasharray={`${6 * sw} ${4 * sw}`}
+          strokeLinejoin="round"
+          className={tone === "target" ? "animate-pulse" : ""}
+        />
+      </g>
+    );
+  // 川は細く、山脈は太く
+  const width = place.kind === "河川" ? 4.5 : 7;
   return (
     <g opacity={opacity}>
       {glow && (
@@ -163,13 +184,13 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
           fill="none"
           stroke={color}
           strokeOpacity={0.22}
-          strokeWidth={22 * sw}
+          strokeWidth={(width + 15) * sw}
           strokeLinecap="round"
           strokeLinejoin="round"
           className={tone === "target" ? "animate-pulse" : ""}
         />
       )}
-      <polyline points={points} fill="none" stroke={color} strokeWidth={7 * sw} strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={points} fill="none" stroke={color} strokeWidth={width * sw} strokeLinecap="round" strokeLinejoin="round" />
     </g>
   );
 }
@@ -177,14 +198,17 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
 /** 印のとなりに名前を出す（答えたあと） */
 function MarkLabel({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
   const p = pts(P, mark.place);
-  // 線はまん中あたり、点はその場所の右に出す。右はしに近ければ左に出す
-  const [x, y] = p[Math.floor((p.length - 1) / 2)];
+  // 面はまん中、線はまん中あたりの点の右、点はその場所の右に出す。右はしに近ければ左に出す
+  const area = mark.place.area;
+  const [x, y] = area
+    ? [p.reduce((a, q) => a + q[0], 0) / p.length, p.reduce((a, q) => a + q[1], 0) / p.length]
+    : p[Math.floor((p.length - 1) / 2)];
   const right = x < P.W - 130 * sw;
   return (
     <text
-      x={x + (right ? 14 : -14) * sw}
+      x={area ? x : x + (right ? 14 : -14) * sw}
       y={y + 6 * sw}
-      textAnchor={right ? "start" : "end"}
+      textAnchor={area ? "middle" : right ? "start" : "end"}
       fontSize={18 * sw}
       fontWeight={700}
       fill={COLOR[mark.tone]}

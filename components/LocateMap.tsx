@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type PointerEvent } from "react";
-import type { Place } from "@/lib/mapSets";
+import { insidePolygon, type Place } from "@/lib/mapSets";
 import type { LatLng, MapVerdict } from "@/lib/mapTask";
 import { Loupe, MapLayers, getProjection, toMapPoint, useLoupe, type Projection } from "./mapBase";
 import { MarkLayer, useMarkSize, type Mark } from "./MarksMap";
@@ -96,9 +96,21 @@ export default function LocateMap({
   );
 }
 
-/** 正解にする範囲：点なら円、線なら線にそった帯 */
+/** 正解にする範囲：点なら円、線なら線にそった帯、面ならその面と、まわりの帯 */
 function Zone({ P, place, tol }: { P: Projection; place: Place; tol: number }) {
   const pts = place.coords.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
+  if (place.area)
+    return (
+      <polygon
+        points={pts.map((p) => p.join(",")).join(" ")}
+        fill="var(--ok)"
+        fillOpacity={0.15}
+        stroke="var(--ok)"
+        strokeOpacity={0.15}
+        strokeWidth={tol * 2}
+        strokeLinejoin="round"
+      />
+    );
   if (pts.length === 1)
     return <circle cx={pts[0][0]} cy={pts[0][1]} r={tol} fill="var(--ok)" fillOpacity={0.15} stroke="var(--ok)" strokeOpacity={0.5} strokeWidth={1.5} />;
   return (
@@ -114,10 +126,14 @@ function Zone({ P, place, tol }: { P: Projection; place: Place; tol: number }) {
   );
 }
 
-/** 印（点か線）の上で、(x, y) にいちばん近いところ */
+/** 印（点・線・面）の上で、(x, y) にいちばん近いところ */
 function nearestPoint(P: Projection, place: Place, x: number, y: number): [number, number] {
   const p = place.coords.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
   if (p.length === 1) return [p[0][0], p[0][1]];
+  if (place.area) {
+    if (insidePolygon(p, x, y)) return [x, y];
+    p.push(p[0]);
+  }
   let best: [number, number] = [p[0][0], p[0][1]];
   let bestD = Infinity;
   for (let i = 0; i + 1 < p.length; i++) {
