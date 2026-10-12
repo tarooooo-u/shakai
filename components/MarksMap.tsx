@@ -43,12 +43,14 @@ export default function MarksMap({
   const size = useMarkSize(svg, P.W);
 
   // いちばん近い印（HIT_PX より遠ければなし）。面の中なら、その面（面の中に面があれば小さいほう）。
-  // ただし線・点の上（ON_LINE_PX まで）なら線・点（平野の中を流れる川もえらべるように）
+  // ただし線・点の上（ON_LINE_PX まで）なら線・点（平野の中を流れる川もえらべるように）。点と線では点（山脈の上の山の▲）
   const nearest = (e: PointerEvent<SVGSVGElement>) => {
     const pt = toMapPoint(svg.current, e);
     if (!pt) return null;
     let line: string | null = null;
     let lineD = HIT_PX / pt.pxPerUnit;
+    let point: string | null = null;
+    let pointD = ON_LINE_PX / pt.pxPerUnit;
     let area: string | null = null;
     let areaD = HIT_PX / pt.pxPerUnit;
     let areaSize = Infinity;
@@ -56,6 +58,7 @@ export default function MarksMap({
       if (!place.area) {
         const d = unitsToPlace(extent, place, pt.x, pt.y);
         if (d < lineD) [line, lineD] = [place.id, d];
+        if (place.coords.length === 1 && d < pointD) [point, pointD] = [place.id, d];
         continue;
       }
       // 小さい面は、まわりの丸の中も面の中とする
@@ -64,6 +67,7 @@ export default function MarksMap({
       const s = d === 0 ? boxSize(place) : 0;
       if (d < areaD || (d === 0 && areaD === 0 && s < areaSize)) [area, areaD, areaSize] = [place.id, d, s];
     }
+    if (point) return point;
     if (line && (lineD <= ON_LINE_PX / pt.pxPerUnit || areaD > 0)) return line;
     return area ?? line;
   };
@@ -178,6 +182,9 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
         {place.kind === "岬" ? (
           // 岬は●（火山の▲と区別する）
           <circle cx={cx} cy={cy} r={6.5 * sw} fill={color} stroke="var(--surface)" strokeWidth={1.5 * sw} />
+        ) : place.kind === "港" ? (
+          // 港は■
+          <rect x={cx - 6 * sw} y={cy - 6 * sw} width={12 * sw} height={12 * sw} fill={color} stroke="var(--surface)" strokeWidth={1.5 * sw} />
         ) : (
           <path
             d={`M${cx},${cy - s * 1.15}L${cx - s},${cy + s * 0.7}L${cx + s},${cy + s * 0.7}Z`}

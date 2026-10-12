@@ -9,9 +9,9 @@ export type Place = {
   id: string;
   name: string;
   reading?: string;
-  /** 山地・山脈 / 火山 / 岬 / 河川 / 平野 / 盆地 / 湖 / 半島 / 島 */
+  /** 山地・山脈 / 火山 / 山 / 岬 / 河川 / 平野 / 台地 / 干拓地 / 盆地 / 湖 / 半島 / 島 / 港 */
   kind: string;
-  /** 1点なら▲（岬は●）、2点以上なら線。area なら点で囲んだ面（平野・盆地・湖・半島・島） */
+  /** 1点なら▲（岬は●、港は■）、2点以上なら線。area なら点で囲んだ面（平野・台地・干拓地・盆地・湖・半島・島） */
   coords: LatLng[];
   area?: boolean;
   /** 面がいくつかに分かれているとき（対馬・隠岐など）の、それぞれの輪郭。coords はその全部をつなげたもの */
@@ -36,13 +36,17 @@ export type MapSet = {
  * scripts/build-mapsets.mjs の KIND_GROUPS と同じにする
  */
 export const KIND_GROUPS = [
-  { id: "mountain", label: "山・火山", kinds: ["山地・山脈", "火山"] },
+  { id: "mountain", label: "山・火山", kinds: ["山地・山脈", "火山", "山"] },
   { id: "water", label: "川・湖", kinds: ["河川", "湖"] },
-  { id: "plain", label: "平野・盆地", kinds: ["平野", "盆地"] },
+  { id: "plain", label: "平野・盆地", kinds: ["平野", "台地", "干拓地", "盆地"] },
   { id: "coast", label: "半島・島・岬", kinds: ["半島", "島", "岬"] },
+  { id: "port", label: "港", kinds: ["港"] },
 ] as const;
 /** "all"・まとまりの id・種類の名前（全国の地図は種類ごとに出す） */
 export type KindGroup = (typeof KIND_GROUPS)[number]["id"] | "all" | (string & {});
+
+/** 印の形。場所をタップでは、同じまとまりで同じ形の地名どうしだけをくらべる */
+export const shapeOf = (place: Place) => (place.area ? "area" : place.coords.length === 1 ? "point" : "line");
 
 export const kindGroupOf = (kind: string) => KIND_GROUPS.find((g) => (g.kinds as readonly string[]).includes(kind))?.id;
 
@@ -106,12 +110,13 @@ export function runTargets(set: MapSet, mode: MapMode, progress: Progress, onlyI
   return shuffle(active.length ? active : set.places);
 }
 
-/** 4択：同じ種類の地名から、なるべく同じセットのものを誤答にする */
+/** 4択：同じ種類の地名から、なるべく同じセットのものを誤答にする。同じ種類が少なければ同じまとまりから */
 export function placeChoices(place: Place, set: MapSet, all: Place[]): string[] {
   const same = all.filter((p) => p.kind === place.kind && p.id !== place.id);
   const inSet = shuffle(same.filter((p) => set.places.includes(p.id)));
   const others = shuffle(same.filter((p) => !set.places.includes(p.id)));
-  const wrong = [...inSet, ...others].slice(0, 3).map((p) => p.name);
+  const near = shuffle(all.filter((p) => p.kind !== place.kind && kindGroupOf(p.kind) === kindGroupOf(place.kind)));
+  const wrong = [...inSet, ...others, ...near].slice(0, 3).map((p) => p.name);
   return shuffle([place.name, ...wrong]);
 }
 
@@ -186,8 +191,8 @@ export function locateTolerance(extent: string, place: Place) {
 
 /**
  * ok = 正解 / close = おしい（許すはばの2倍まで。記録は×）/ ng = ちがう。
- * 同じ種類のまとまりのほかの地名で、もっと近くてその範囲に入っていたら ng（other にその地名）。
- * 面とそれ以外（平野の中の川・半島の先の岬）や、ちがう種類のまとまり（盆地の中の湖）はくらべない
+ * 同じ種類のまとまりで同じ形のほかの地名で、もっと近くてその範囲に入っていたら ng（other にその地名）。
+ * 形がちがうもの（平野の中の川・半島の先の岬・山脈の上の山）や、ちがう種類のまとまり（盆地の中の湖）はくらべない
  */
 export function judgeLocate(set: MapSet, target: Place, pin: LatLng, places: Map<string, Place>) {
   const P = planar(MAP_EXTENTS[set.extent]);
@@ -197,7 +202,7 @@ export function judgeLocate(set: MapSet, target: Place, pin: LatLng, places: Map
   const other = set.places
     .filter((id) => id !== target.id)
     .map((id) => places.get(id)!)
-    .filter((p) => !p.area === !target.area && kindGroupOf(p.kind) === kindGroupOf(target.kind))
+    .filter((p) => shapeOf(p) === shapeOf(target) && kindGroupOf(p.kind) === kindGroupOf(target.kind))
     .find((p) => {
       const dp = unitsToPlace(set.extent, p, x, y);
       return dp < d && dp <= locateTolerance(set.extent, p);

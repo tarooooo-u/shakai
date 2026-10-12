@@ -10,23 +10,27 @@ const MAPS = join(ROOT, "content", "maps");
 const OUT = join(ROOT, "data", "mapsets.generated.json");
 const EXTENTS = JSON.parse(readFileSync(join(MAPS, "extents.json"), "utf8"));
 
-const KINDS = ["山地・山脈", "火山", "岬", "河川", "平野", "盆地", "湖", "半島", "島"];
-// 1点で描く種類（火山は▲、岬は●）
-const POINT_KINDS = ["火山", "岬"];
+const KINDS = ["山地・山脈", "火山", "山", "岬", "河川", "平野", "台地", "干拓地", "盆地", "湖", "半島", "島", "港"];
+// 1点で描く種類（火山・山は▲、岬は●、港は■）
+const POINT_KINDS = ["火山", "山", "岬", "港"];
 // 点で囲んだ面として描く種類
-const AREA_KINDS = ["平野", "盆地", "湖", "半島", "島"];
+const AREA_KINDS = ["平野", "台地", "干拓地", "盆地", "湖", "半島", "島"];
 // 種類のまとまり（アプリの「しぼる」）。lib/mapSets.ts の KIND_GROUPS と同じにする。
 // 地図は全国＋7地方で、種類でしぼって出すので、見分けやすさ・勘で当たる確率は同じまとまりの中だけで調べる
-const KIND_GROUPS = { 山地・山脈: "山・火山", 火山: "山・火山", 河川: "川・湖", 湖: "川・湖", 平野: "平野・盆地", 盆地: "平野・盆地", 半島: "半島・島・岬", 島: "半島・島・岬", 岬: "半島・島・岬" };
+const KIND_GROUPS = { 山地・山脈: "山・火山", 火山: "山・火山", 山: "山・火山", 河川: "川・湖", 湖: "川・湖", 平野: "平野・盆地", 台地: "平野・盆地", 干拓地: "平野・盆地", 盆地: "平野・盆地", 半島: "半島・島・岬", 島: "半島・島・岬", 岬: "半島・島・岬", 港: "港" };
+// 印の形：点（▲●■）・線・面。場所をタップでは、同じまとまりで同じ形の地名どうしだけをくらべる（lib/mapSets.ts の shapeOf）
+const shapeOf = (p) => (p.area ? "area" : p.coords.length === 1 ? "point" : "line");
+// 点どうしは、まとまりがちがっても、これより近いと印がかさなる
+const MIN_POINT_GAP = 12;
 // 全国の地図はまとめずに種類ごとに出す（lib/mapSets.ts の byKindOnly）
 const BY_KIND_ONLY = ["全国"];
 // 1つの地図で、いっしょに出す印の数の上限
 const MAX_GROUP_MARKS = 16;
 // 印どうしがこれより近いと見分けにくい（地図の横はば 800 のときの長さ）
 const MIN_GAP = 24;
-// 線（山脈・川）どうしは、はしが近いだけならよい（支流の合流・河口や水源が近い川）。
+// 線（山脈・川）どうしは、はしが近いだけならよい（支流の合流・河口や水源が近い川。木曽三川のように下流がならんで流れる川）。
 // 短いほうの線のこの割合以上が MIN_GAP より近いときだけ注意する
-const MAX_LINE_OVERLAP = 0.3;
+const MAX_LINE_OVERLAP = 0.5;
 // 面（平野・盆地・湖）どうしは形で見分けられるので、ほぼくっついているときだけ注意する
 const MIN_AREA_GAP = 8;
 // 場所をタップ（locate）の許すはば。lib/mapSets.ts と同じ値にする
@@ -182,10 +186,17 @@ for (const { line, r } of read("sets.csv")) {
   }
   for (let i = 0; i < members.length; i++)
     for (let j = i + 1; j < members.length; j++) {
-      // 平野と川・山はかさなってよい（平野の中を川が流れる）。ちがうまとまりの地名もくらべない（いっしょに出ても形で見分けられる）
-      if (!members[i].area !== !members[j].area || group(members[i]) !== group(members[j])) continue;
       const [a, b] = [members[i], members[j]];
       const [sa, sb] = [shape(a, proj), shape(b, proj)];
+      // 点どうし（▲●■）は、まとまりがちがっても「ぜんぶ」でいっしょに出るとかさなる
+      if (shapeOf(a) === "point" && shapeOf(b) === "point" && group(a) !== group(b)) {
+        if (BY_KIND_ONLY.includes(r.地図)) continue;
+        const d = gap(sa, sb);
+        if (d < MIN_POINT_GAP) warnings.push(`sets.csv:${line} [${r.id}] 「${a.name}」と「${b.name}」の印がかさなっている（${d.toFixed(0)}）。どちらかを外してください`);
+        continue;
+      }
+      // 形がちがうもの（平野の中の川、山脈の上の山の▲）と、ちがうまとまりの地名はくらべない（いっしょに出ても形で見分けられる）
+      if (shapeOf(a) !== shapeOf(b) || group(a) !== group(b)) continue;
       if (!a.area && a.coords.length > 1 && b.coords.length > 1) {
         const share = (x, y) => samples(x.edges[0]).filter((q) => distTo(q, y) < MIN_GAP).length / samples(x.edges[0]).length;
         const s = Math.max(share(sa, sb), share(sb, sa));
@@ -208,15 +219,17 @@ for (const { line, r } of read("sets.csv")) {
     const land = landPoints(E);
     for (const [lat, lng] of land) {
       const q = proj({ lat, lng });
-      // 判定は lib/mapSets.ts の judgeLocate と同じ：範囲に入っていて、もっと近いほかの地名（同じまとまりの、面どうし・面以外どうし）の範囲に入っていなければ正解
+      // 判定は lib/mapSets.ts の judgeLocate と同じ：範囲に入っていて、もっと近いほかの地名（同じまとまりで同じ形）の範囲に入っていなければ正解
       const d = marks.map((m) => distTo(q, m.sh));
       marks.forEach((m, i) => {
         if (d[i] > m.tol) return;
-        const blocked = marks.some((o, j) => j !== i && !o.p.area === !m.p.area && group(o.p) === group(m.p) && d[j] < d[i] && d[j] <= o.tol);
+        const blocked = marks.some((o, j) => j !== i && shapeOf(o.p) === shapeOf(m.p) && group(o.p) === group(m.p) && d[j] < d[i] && d[j] <= o.tol);
         if (!blocked) hits[i]++;
       });
     }
     marks.forEach((m, i) => {
+      // 島は、その島をタップするのが答えなので調べない（南西諸島のように陸地が島だけの地図では高くなる）
+      if (m.p.kind === "島") return;
       const rate = hits[i] / land.length;
       if (rate > MAX_GUESS) warnings.push(`sets.csv:${line} [${r.id}] 場所をタップで「${m.p.name}」が勘で当たる確率 ${(rate * 100).toFixed(1)}% が高い（${MAX_GUESS * 100}%まで）`);
     });

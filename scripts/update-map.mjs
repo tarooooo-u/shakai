@@ -14,7 +14,7 @@ const BASE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/mas
 const OUT = join(ROOT, "content", "maps", "japan.json");
 
 // 切り出す範囲（経度・緯度）。地図に出す範囲（lib/mapTask.ts の MAP_EXTENTS）より少し広くとる
-const BOX = { west: 120, east: 155, south: 26, north: 50 };
+const BOX = { west: 120, east: 155, south: 23.5, north: 50 };
 // 点の間引き（度）。0.004度 ≒ 400m（地方の地図で拡大してもカクカクしないように）
 const TOLERANCE = 0.004;
 // これより小さい島・湖は描かない（度×度。0.0003 ≒ 3km²）
