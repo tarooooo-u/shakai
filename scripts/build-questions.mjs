@@ -116,7 +116,11 @@ const PREFECTURES = [
 const DIFFICULTY = { 基本: "basic", 標準: "standard", 発展: "advanced", 最難関: "top" };
 const list = (s) => s.split(/[|｜]/).map((x) => x.trim()).filter(Boolean);
 
+// 「〜はどれか」のように選択肢がないと答えられない問題。出題形式「4択のみ」を付ける
+const NEEDS_CHOICES = /どれ(か|で|が)/;
+
 const errors = [];
+const warnings = [];
 const questions = [];
 const ids = new Map();
 
@@ -161,6 +165,13 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
     if (choices.length > 0 && choices.length < 3) err("誤答選択肢は 3つ以上（| 区切り）か空欄");
     if (choices.includes(r.答え)) err("誤答選択肢に正解が入っています");
     if (new Set(choices).size !== choices.length) err("誤答選択肢が重複しています");
+
+    // 出題形式列（任意の列）：「4択のみ」ならカードで始めても4択で出す
+    const choiceOnly = r.出題形式 === "4択のみ";
+    if (r.出題形式 && !choiceOnly) err("出題形式は「4択のみ」か空欄");
+    if (choiceOnly && choices.length < 3) err("出題形式「4択のみ」の問題は誤答選択肢が3つ以上必要です");
+    if (!choiceOnly && NEEDS_CHOICES.test(r.問題) && r.画像 !== "choices" && !r.地図問題)
+      warnings.push(`${where(line)} [${r.id}] 「どれか」の問題はカードでは答えられません。出題形式を「4択のみ」にするか、「何か」の問い方にしてください`);
 
     // 画像列が「climate:地点番号」なら雨温図を表示する
     let climate;
@@ -230,10 +241,19 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       ...(climate && { climate }),
       ...(map && { map }),
       ...(mapTask && { mapTask }),
+      ...(choiceOnly && { choiceOnly }),
       ...(r.出典メモ && { source: r.出典メモ }),
       checked: r.確認 === "済",
     });
   }
+}
+
+if (warnings.length) {
+  console.warn(`
+注意が ${warnings.length} 件あります:
+`);
+  for (const w of warnings) console.warn("  - " + w);
+  console.warn("");
 }
 
 if (errors.length) {

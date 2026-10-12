@@ -74,11 +74,11 @@ function Main({ profile }: { profile: Profile }) {
   };
   const start = (ids: string[], style: Style) => {
     if (ids.length === 0) return;
-    // 4択のときは全問、カードのときも画像で選ぶ問題だけは選択肢を用意する
+    // 4択のときは全問、カードのときも画像で選ぶ問題と「4択のみ」の問題は選択肢を用意する
     const choices = Object.fromEntries(
       ids
         .map((id) => QUESTION_BY_ID.get(id)!)
-        .filter((q) => style === "choice" || q.imageChoices)
+        .filter((q) => style === "choice" || q.imageChoices || q.choiceOnly)
         .map((q) => [q.id, buildChoices(q)]),
     );
     const graduatedBefore = ids.filter((id) => isGraduated(progress[id]));

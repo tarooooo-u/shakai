@@ -24,6 +24,8 @@ export type Question = {
   altAnswers: string[];
   /** 4択用の誤答。空なら4択では出さない */
   choices: string[];
+  /** 「〜はどれか」など選択肢がないと答えられない問題。カードで始めても4択で出す */
+  choiceOnly?: boolean;
   /** 背景知識・関連事項。最難関レベルで問われる「なぜ」まで書く */
   explanation: string;
   /** 書き間違えやすい漢字などの注意点 */
