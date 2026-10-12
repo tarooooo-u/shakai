@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { QUESTIONS, QUESTION_BY_ID } from "@/data";
+import { MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUESTION_BY_ID } from "@/data";
 import { useFavorites } from "@/lib/favorites";
+import { placeChoices, recordKey, runTargets, type MapMode, type MapRun } from "@/lib/mapSets";
 import { isGraduated, needsReview, removeLegacyData, useProgress } from "@/lib/progress";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
 import { buildChoices, type Style } from "@/lib/session";
@@ -14,6 +15,8 @@ import Quiz from "./Quiz";
 import Result from "./Result";
 import Sidebar, { THEMES, type Page } from "./Sidebar";
 import Credits from "./Credits";
+import MapSetQuiz from "./MapSetQuiz";
+import MapSetsPage from "./MapSetsPage";
 import TopicPage from "./TopicPage";
 
 export type Session = {
@@ -30,7 +33,9 @@ type Overlay =
   | null
   | { kind: "quiz"; session: Session }
   | { kind: "result"; session: Session; results: Record<string, Grade> }
-  | { kind: "list"; title: string; ids: string[] };
+  | { kind: "list"; title: string; ids: string[] }
+  | { kind: "mapquiz"; run: MapRun }
+  | { kind: "mapresult"; run: MapRun; results: Record<string, Grade> };
 
 const ALL_UNITS = Object.values(UNITS).flat();
 
@@ -85,6 +90,18 @@ function Main({ profile }: { profile: Profile }) {
     setRunKey((k) => k + 1);
     show({ kind: "quiz", session: { ids, style, choices, graduatedBefore } });
   };
+  // 白地図ドリル。onlyIds があればその地名だけ（結果画面の「もう一度」）
+  const startMap = (setId: string, mode: MapMode, style: Style, onlyIds?: string[]) => {
+    const set = MAP_SETS.find((s) => s.id === setId)!;
+    const targets = runTargets(set, mode, progress, onlyIds);
+    const choices =
+      mode === "name" && style === "choice"
+        ? Object.fromEntries(targets.map((id) => [id, placeChoices(PLACE_BY_ID.get(id)!, set, PLACES)]))
+        : {};
+    const graduatedBefore = targets.filter((id) => isGraduated(progress[recordKey(id, mode)]));
+    setRunKey((k) => k + 1);
+    show({ kind: "mapquiz", run: { setId, mode, style, targets, choices, graduatedBefore } });
+  };
   const openList = (title: string, ids: string[]) => show({ kind: "list", title, ids });
   const back = () => show(null);
 
@@ -112,6 +129,36 @@ function Main({ profile }: { profile: Profile }) {
           graduated={session.ids.filter((id) => isGraduated(progress[id]) && !session.graduatedBefore.includes(id))}
           onRetry={(ids) => start(ids, session.style)}
           onHome={back}
+        />
+      );
+    }
+    if (overlay?.kind === "mapquiz") {
+      const { run } = overlay;
+      return (
+        <MapSetQuiz
+          key={runKey}
+          run={run}
+          onFinish={(results) => {
+            const answered = run.targets.filter((id) => results[id]);
+            if (answered.length === 0) return back();
+            show({ kind: "mapresult", run: { ...run, targets: answered }, results });
+          }}
+        />
+      );
+    }
+    if (overlay?.kind === "mapresult") {
+      const { run, results } = overlay;
+      return (
+        <Result
+          ids={run.targets}
+          results={results}
+          graduated={run.targets.filter((id) => isGraduated(progress[recordKey(id, run.mode)]) && !run.graduatedBefore.includes(id))}
+          onRetry={(ids) => startMap(run.setId, run.mode, run.style, ids)}
+          onHome={back}
+          describe={(id) => {
+            const p = PLACE_BY_ID.get(id)!;
+            return { question: `${p.kind}${p.reading ? `（${p.reading}）` : ""}`, answer: p.name, kanjiNote: p.kanjiNote };
+          }}
         />
       );
     }
@@ -178,6 +225,8 @@ function Main({ profile }: { profile: Profile }) {
           />
         );
       }
+      case "mapsets":
+        return <MapSetsPage progress={progress} onStart={startMap} />;
       case "credits":
         return <Credits />;
       case "all":

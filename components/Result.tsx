@@ -4,12 +4,17 @@ import { QUESTION_BY_ID } from "@/data";
 import type { Grade } from "@/lib/types";
 import { GRADE_META, GradeMark } from "./ui";
 
+type Review = { question: string; answer: string; kanjiNote?: string };
+
+const describeQuestion = (id: string): Review => QUESTION_BY_ID.get(id)!;
+
 export default function Result({
   ids,
   results,
   graduated,
   onRetry,
   onHome,
+  describe = describeQuestion,
 }: {
   ids: string[];
   results: Record<string, Grade>;
@@ -17,6 +22,8 @@ export default function Result({
   graduated: string[];
   onRetry: (ids: string[]) => void;
   onHome: () => void;
+  /** 「見直そう」に出す内容（白地図ドリルでは地名から作る） */
+  describe?: (id: string) => Review;
 }) {
   const count = (g: Grade) => ids.filter((id) => results[id] === g).length;
   const ok = count("ok");
@@ -77,7 +84,7 @@ export default function Result({
           <h2 className="text-xs font-bold tracking-wider text-muted">見直そう</h2>
           <ul className="space-y-2">
             {weak.map((id) => {
-              const q = QUESTION_BY_ID.get(id)!;
+              const q = describe(id);
               return (
                 <li key={id} className="rounded-2xl border border-line bg-surface p-4">
                   <div className="flex gap-3">

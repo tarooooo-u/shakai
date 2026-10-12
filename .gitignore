@@ -55,3 +55,4 @@ next-env.d.ts
 # private notes (scanned-material import log etc.) - never commit
 /private/
 /data/images.generated.json
+/data/mapsets.generated.json
