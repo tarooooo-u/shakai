@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
-import { unitsToPlace, type Place } from "@/lib/mapSets";
+import { placeRings, unitsToPlace, type Place } from "@/lib/mapSets";
 import { Loupe, MapLayers, getProjection, toMapPoint, useLoupe, type Projection } from "./mapBase";
 
 /**
@@ -148,13 +148,18 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
     return (
       <g opacity={opacity}>
         {glow && <circle cx={cx} cy={cy} r={18 * sw} fill={color} fillOpacity={0.2} className={tone === "target" ? "animate-pulse" : ""} />}
-        <path
-          d={`M${cx},${cy - s * 1.15}L${cx - s},${cy + s * 0.7}L${cx + s},${cy + s * 0.7}Z`}
-          fill={color}
-          stroke="var(--surface)"
-          strokeWidth={1.5 * sw}
-          strokeLinejoin="round"
-        />
+        {place.kind === "岬" ? (
+          // 岬は●（火山の▲と区別する）
+          <circle cx={cx} cy={cy} r={6.5 * sw} fill={color} stroke="var(--surface)" strokeWidth={1.5 * sw} />
+        ) : (
+          <path
+            d={`M${cx},${cy - s * 1.15}L${cx - s},${cy + s * 0.7}L${cx + s},${cy + s * 0.7}Z`}
+            fill={color}
+            stroke="var(--surface)"
+            strokeWidth={1.5 * sw}
+            strokeLinejoin="round"
+          />
+        )}
       </g>
     );
   }
@@ -180,8 +185,8 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
             className={tone === "target" ? "animate-pulse" : ""}
           />
         )}
-        <polygon
-          points={points}
+        <path
+          d={areaPath(P, place)}
           fill={color}
           fillOpacity={glow ? 0.35 : 0.16}
           stroke={color}
@@ -212,6 +217,13 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
       <polyline points={points} fill="none" stroke={color} strokeWidth={width * sw} strokeLinecap="round" strokeLinejoin="round" />
     </g>
   );
+}
+
+/** 面の輪郭（いくつかに分かれていれば全部）を1つのパスにする */
+export function areaPath(P: Projection, place: Place) {
+  return placeRings(place)
+    .map((r) => "M" + r.map(({ lat, lng }) => `${P.x(lng).toFixed(1)},${P.y(lat).toFixed(1)}`).join("L") + "Z")
+    .join("");
 }
 
 /** 印のとなりに名前を出す（答えたあと） */

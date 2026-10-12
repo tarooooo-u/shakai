@@ -10,9 +10,11 @@ const MAPS = join(ROOT, "content", "maps");
 const OUT = join(ROOT, "data", "mapsets.generated.json");
 const EXTENTS = JSON.parse(readFileSync(join(MAPS, "extents.json"), "utf8"));
 
-const KINDS = ["山地・山脈", "火山", "河川", "平野", "盆地", "湖"];
+const KINDS = ["山地・山脈", "火山", "岬", "河川", "平野", "盆地", "湖", "半島", "島"];
+// 1点で描く種類（火山は▲、岬は●）
+const POINT_KINDS = ["火山", "岬"];
 // 点で囲んだ面として描く種類
-const AREA_KINDS = ["平野", "盆地", "湖"];
+const AREA_KINDS = ["平野", "盆地", "湖", "半島", "島"];
 // 1つのセットの印の数
 const MIN_MARKS = 4;
 const MAX_MARKS = 10;
@@ -58,26 +60,32 @@ for (const { line, r } of read("places.csv")) {
   else if (byName.has(r.名前)) err(`名前「${r.名前}」が重複`);
   if (!KINDS.includes(r.種類)) err(`種類は ${KINDS.join(" / ")} のどれか`);
   if (!r.解説) err("解説が空です");
-  // 座標：「北緯,東経」。線（山脈・川）は「;」で区切って2点以上、面（平野）はまわりを3点以上
-  const coords = r.座標.split(";").map((s) => s.trim().match(/^(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)$/));
-  if (coords.some((m) => !m)) {
-    err("座標は「北緯,東経」、線は「北緯,東経;北緯,東経;…」");
+  // 座標：「北緯,東経」。線（山脈・川）は「;」で区切って2点以上、面（平野など）はまわりを3点以上。
+  // 面がいくつかに分かれているとき（対馬・隠岐など）は、輪郭ごとに「/」で区切る
+  const parsed = r.座標.split("/").map((t) => t.split(";").map((s) => s.trim().match(/^(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)$/)));
+  if (parsed.flat().some((m) => !m)) {
+    err("座標は「北緯,東経」、線は「北緯,東経;北緯,東経;…」、分かれた面は「…/…」");
     continue;
   }
+  const rings = parsed.map((ms) => ms.map((m) => ({ lat: Number(m[1]), lng: Number(m[2]) })));
+  const coords = rings.flat();
   const place = {
     id: r.id,
     name: r.名前,
     ...(r.読み && { reading: r.読み }),
     kind: r.種類,
-    coords: coords.map((m) => ({ lat: Number(m[1]), lng: Number(m[2]) })),
+    coords,
     ...(AREA_KINDS.includes(r.種類) && { area: true }),
+    ...(rings.length > 1 && { rings }),
     explanation: r.解説,
     ...(r.漢字注意 && { kanjiNote: r.漢字注意 }),
     ...(r.出典メモ && { source: r.出典メモ }),
     checked: r.確認 === "済",
   };
-  if (place.area && place.coords.length < 3) err("平野・盆地・湖は、まわりの点を3つ以上（「;」区切り）");
-  if (!place.area && r.種類 !== "火山" && place.coords.length < 2) err("山脈・川は線なので、2点以上（「;」区切り）");
+  if (rings.length > 1 && !place.area) err("「/」で区切れるのは、面（平野・盆地・湖・半島・島）だけ");
+  if (place.area && rings.some((ring) => ring.length < 3)) err("面は、まわりの点を3つ以上（「;」区切り）");
+  if (POINT_KINDS.includes(r.種類) && coords.length !== 1) err(`${r.種類}は1点（「北緯,東経」）`);
+  if (!place.area && !POINT_KINDS.includes(r.種類) && coords.length < 2) err("山脈・川は線なので、2点以上（「;」区切り）");
   if (place.coords.some(({ lat, lng }) => lat < 20 || lat > 46 || lng < 122 || lng > 154)) err("座標が日本の外です（北緯,東経 の順）");
   places.push(place);
   byName.set(place.name, place);
@@ -113,18 +121,15 @@ const inside = (ring, x, y) => {
   }
   return c;
 };
-// 印までの長さ。面（平野）の中なら 0。lib/mapSets.ts の unitsToPlace と同じ
-const distTo = (p, pts, area = false) => {
-  if (pts.length === 1) return Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]);
-  if (area && inside(pts, p[0], p[1])) return 0;
-  const line = area ? [...pts, pts[0]] : pts;
-  return Math.min(...line.slice(1).map((b, i) => segDist(p, line[i], b)));
+// 地図の上の形：点・線（1本）・面（輪郭1つ以上）。edges は面なら閉じた輪郭、線ならその線
+const shape = (place, proj) => {
+  const parts = (place.rings ?? [place.coords]).map((ring) => ring.map(proj));
+  return { area: !!place.area, parts, edges: place.area ? parts.map((r) => [...r, r[0]]) : parts };
 };
-const gap = (a, b, areaA, areaB) => {
-  const ra = areaA ? [...a, a[0]] : a;
-  const rb = areaB ? [...b, b[0]] : b;
-  return Math.min(...samples(ra).map((p) => distTo(p, b, areaB)), ...samples(rb).map((p) => distTo(p, a, areaA)));
-};
+const lineDist = (p, line) => (line.length === 1 ? Math.hypot(p[0] - line[0][0], p[1] - line[0][1]) : Math.min(...line.slice(1).map((b, i) => segDist(p, line[i], b))));
+// 印までの長さ。面の中なら 0。lib/mapSets.ts の unitsToPlace と同じ
+const distTo = (p, sh) => (sh.area && sh.parts.some((r) => inside(r, p[0], p[1])) ? 0 : Math.min(...sh.edges.map((e) => lineDist(p, e))));
+const gap = (a, b) => Math.min(...a.edges.flatMap(samples).map((p) => distTo(p, b)), ...b.edges.flatMap(samples).map((p) => distTo(p, a)));
 
 // 地図の範囲の中の陸地に細かく点を置く（勘で当たる確率を数えるため）
 const LAND = new Map();
@@ -171,14 +176,14 @@ for (const { line, r } of read("sets.csv")) {
       // 平野と川・山はかさなってよい（平野の中を川が流れる）
       if (!members[i].area !== !members[j].area) continue;
       const [a, b] = [members[i], members[j]];
-      const [pa, pb] = [a.coords.map(proj), b.coords.map(proj)];
-      if (!a.area && pa.length > 1 && pb.length > 1) {
-        const share = (x, y) => samples(x).filter((q) => distTo(q, y) < MIN_GAP).length / samples(x).length;
-        const s = Math.max(share(pa, pb), share(pb, pa));
+      const [sa, sb] = [shape(a, proj), shape(b, proj)];
+      if (!a.area && a.coords.length > 1 && b.coords.length > 1) {
+        const share = (x, y) => samples(x.edges[0]).filter((q) => distTo(q, y) < MIN_GAP).length / samples(x.edges[0]).length;
+        const s = Math.max(share(sa, sb), share(sb, sa));
         if (s > MAX_LINE_OVERLAP) warnings.push(`sets.csv:${line} [${r.id}] 「${a.name}」と「${b.name}」の線が ${Math.round(s * 100)}% かさなっていて見分けにくい。地方の地図にするか、どちらかを外してください`);
         continue;
       }
-      const d = gap(pa, pb, a.area, b.area);
+      const d = gap(sa, sb);
       if (d < (a.area ? MIN_AREA_GAP : MIN_GAP)) warnings.push(`sets.csv:${line} [${r.id}] 「${members[i].name}」と「${members[j].name}」の印が近すぎて見分けにくい（${d.toFixed(0)}）。地方の地図にするか、どちらかを外してください`);
     }
   // 場所をタップ：陸地をでたらめにタップしたとき、それぞれの地名で正解になる割合
@@ -187,7 +192,7 @@ for (const { line, r } of read("sets.csv")) {
     const base = Math.max((E.tolKm / 111.2) * scale, LOCATE_MIN_UNITS);
     const marks = members.map((p) => ({
       p,
-      pts: p.coords.map(proj),
+      sh: shape(p, proj),
       tol: p.area ? base * LOCATE_AREA_FACTOR : p.coords.length === 1 ? base : base * LOCATE_LINE_FACTOR,
     }));
     const hits = marks.map(() => 0);
@@ -195,7 +200,7 @@ for (const { line, r } of read("sets.csv")) {
     for (const [lat, lng] of land) {
       const q = proj({ lat, lng });
       // 判定は lib/mapSets.ts の judgeLocate と同じ：範囲に入っていて、もっと近いほかの地名（面どうし・面以外どうし）の範囲に入っていなければ正解
-      const d = marks.map((m) => distTo(q, m.pts, m.p.area));
+      const d = marks.map((m) => distTo(q, m.sh));
       marks.forEach((m, i) => {
         if (d[i] > m.tol) return;
         const blocked = marks.some((o, j) => j !== i && !o.p.area === !m.p.area && d[j] < d[i] && d[j] <= o.tol);

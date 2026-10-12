@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef, type PointerEvent } from "react";
-import { insidePolygon, type Place } from "@/lib/mapSets";
+import { insidePolygon, placeRings, type Place } from "@/lib/mapSets";
 import type { LatLng, MapVerdict } from "@/lib/mapTask";
 import { Loupe, MapLayers, getProjection, toMapPoint, useLoupe, type Projection } from "./mapBase";
-import { MarkLayer, useMarkSize, type Mark } from "./MarksMap";
+import { MarkLayer, areaPath, useMarkSize, type Mark } from "./MarksMap";
 
 const VERDICT_COLOR: Record<MapVerdict, string> = { ok: "var(--ok)", close: "var(--unsure)", ng: "var(--ng)" };
 
@@ -101,8 +101,8 @@ function Zone({ P, place, tol }: { P: Projection; place: Place; tol: number }) {
   const pts = place.coords.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
   if (place.area)
     return (
-      <polygon
-        points={pts.map((p) => p.join(",")).join(" ")}
+      <path
+        d={areaPath(P, place)}
         fill="var(--ok)"
         fillOpacity={0.15}
         stroke="var(--ok)"
@@ -128,23 +128,25 @@ function Zone({ P, place, tol }: { P: Projection; place: Place; tol: number }) {
 
 /** 印（点・線・面）の上で、(x, y) にいちばん近いところ */
 function nearestPoint(P: Projection, place: Place, x: number, y: number): [number, number] {
-  const p = place.coords.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
+  const toXY = (ring: Place["coords"]) => ring.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
+  const p = toXY(place.coords);
   if (p.length === 1) return [p[0][0], p[0][1]];
-  if (place.area) {
-    if (insidePolygon(p, x, y)) return [x, y];
-    p.push(p[0]);
-  }
+  // 面は、どれかの輪郭の中ならその場所。外なら、輪郭（閉じた線）の上でいちばん近いところ
+  const lines = place.area ? placeRings(place).map(toXY) : [p];
+  if (place.area && lines.some((r) => insidePolygon(r, x, y))) return [x, y];
+  if (place.area) lines.forEach((r) => r.push(r[0]));
   let best: [number, number] = [p[0][0], p[0][1]];
   let bestD = Infinity;
-  for (let i = 0; i + 1 < p.length; i++) {
-    const [ax, ay] = p[i];
-    const [bx, by] = p[i + 1];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
-    const q: [number, number] = [ax + t * dx, ay + t * dy];
-    const d = Math.hypot(x - q[0], y - q[1]);
-    if (d < bestD) [best, bestD] = [q, d];
-  }
+  for (const line of lines)
+    for (let i = 0; i + 1 < line.length; i++) {
+      const [ax, ay] = line[i];
+      const [bx, by] = line[i + 1];
+      const dx = bx - ax;
+      const dy = by - ay;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+      const q: [number, number] = [ax + t * dx, ay + t * dy];
+      const d = Math.hypot(x - q[0], y - q[1]);
+      if (d < bestD) [best, bestD] = [q, d];
+    }
   return best;
 }

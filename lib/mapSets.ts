@@ -9,11 +9,13 @@ export type Place = {
   id: string;
   name: string;
   reading?: string;
-  /** 山地・山脈 / 火山 / 河川 / 平野 / 盆地 / 湖 */
+  /** 山地・山脈 / 火山 / 岬 / 河川 / 平野 / 盆地 / 湖 / 半島 / 島 */
   kind: string;
-  /** 1点なら▲、2点以上なら線。area なら点で囲んだ面（平野・盆地・湖） */
+  /** 1点なら▲（岬は●）、2点以上なら線。area なら点で囲んだ面（平野・盆地・湖・半島・島） */
   coords: LatLng[];
   area?: boolean;
+  /** 面がいくつかに分かれているとき（対馬・隠岐など）の、それぞれの輪郭。coords はその全部をつなげたもの */
+  rings?: LatLng[][];
   explanation: string;
   kanjiNote?: string;
   source?: string;
@@ -104,15 +106,25 @@ export function insidePolygon(p: number[][], x: number, y: number) {
   return c;
 }
 
+/** 面の輪郭（1つか、いくつか） */
+export const placeRings = (place: Place) => place.rings ?? [place.coords];
+
 /** 地名の印（点・線・面）までの、地図の上の長さ。面の中なら 0 */
 export function unitsToPlace(extent: string, place: Place, x: number, y: number) {
   const P = planar(MAP_EXTENTS[extent]);
-  const p = place.coords.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
-  if (p.length === 1) return Math.hypot(x - p[0][0], y - p[0][1]);
+  const toXY = (ring: LatLng[]) => ring.map(({ lat, lng }) => [P.x(lng), P.y(lat)]);
   if (place.area) {
-    if (insidePolygon(p, x, y)) return 0;
-    p.push(p[0]);
+    const rings = placeRings(place).map(toXY);
+    if (rings.some((r) => insidePolygon(r, x, y))) return 0;
+    return Math.min(...rings.map((r) => lineDistance([...r, r[0]], x, y)));
   }
+  const p = toXY(place.coords);
+  if (p.length === 1) return Math.hypot(x - p[0][0], y - p[0][1]);
+  return lineDistance(p, x, y);
+}
+
+/** 折れ線までの長さ */
+function lineDistance(p: number[][], x: number, y: number) {
   let best = Infinity;
   for (let i = 0; i + 1 < p.length; i++) {
     const [ax, ay] = p[i];
