@@ -151,7 +151,7 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
         {mode === "locate" && !revealed && (
           <>
             <p className="text-center text-sm text-muted">
-              地図をタップしてピンを立てよう。ドラッグで動かせるよ。{target.area ? "平野は、その中に立てればOK。" : target.coords.length > 1 && "線のどこかに立てればOK。"}
+              地図をタップしてピンを立てよう。ドラッグで動かせるよ。{target.area ? `${target.kind}は、その中に立てればOK。` : target.coords.length > 1 && "線のどこかに立てればOK。"}
             </p>
             <button
               type="button"

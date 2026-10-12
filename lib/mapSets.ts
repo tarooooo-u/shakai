@@ -9,9 +9,9 @@ export type Place = {
   id: string;
   name: string;
   reading?: string;
-  /** 山地・山脈 / 火山 / 河川 / 平野 */
+  /** 山地・山脈 / 火山 / 河川 / 平野 / 盆地 / 湖 */
   kind: string;
-  /** 1点なら▲、2点以上なら線。area なら点で囲んだ面（平野） */
+  /** 1点なら▲、2点以上なら線。area なら点で囲んだ面（平野・盆地・湖） */
   coords: LatLng[];
   area?: boolean;
   explanation: string;

@@ -31,7 +31,7 @@ export default function MapSetsPage({
       <header className="space-y-1">
         <h1 className="text-2xl font-bold sm:text-3xl">白地図ドリル</h1>
         <p className="text-sm text-muted">
-          1枚の地図に、山脈や川の線・火山の▲・平野の囲みがいくつかあります。1つずつ答えていこう。2回続けて〇なら、その地名は卒業です（答え方ごと）。
+          1枚の地図に、山脈や川の線・火山の▲・平野や湖の囲みがいくつかあります。1つずつ答えていこう。2回続けて〇なら、その地名は卒業です（答え方ごと）。
         </p>
       </header>
 

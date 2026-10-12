@@ -159,9 +159,27 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
     );
   }
   const points = p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  if (place.area)
+  if (place.area) {
+    // 小さい面（湖・盆地）は地図の上で点のようになるので、まわりに丸を重ねて目立たせる
+    const xs = p.map((q) => q[0]);
+    const ys = p.map((q) => q[1]);
+    const small = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) < 18 * sw;
+    const [cx, cy] = [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2];
     return (
       <g opacity={opacity}>
+        {small && (
+          <circle
+            cx={cx}
+            cy={cy}
+            r={12 * sw}
+            fill={color}
+            fillOpacity={glow ? 0.25 : 0.08}
+            stroke={color}
+            strokeWidth={2 * sw}
+            strokeDasharray={`${4 * sw} ${3 * sw}`}
+            className={tone === "target" ? "animate-pulse" : ""}
+          />
+        )}
         <polygon
           points={points}
           fill={color}
@@ -174,6 +192,7 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
         />
       </g>
     );
+  }
   // 川は細く、山脈は太く
   const width = place.kind === "河川" ? 4.5 : 7;
   return (

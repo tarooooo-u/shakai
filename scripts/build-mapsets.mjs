@@ -10,9 +10,9 @@ const MAPS = join(ROOT, "content", "maps");
 const OUT = join(ROOT, "data", "mapsets.generated.json");
 const EXTENTS = JSON.parse(readFileSync(join(MAPS, "extents.json"), "utf8"));
 
-const KINDS = ["山地・山脈", "火山", "河川", "平野"];
+const KINDS = ["山地・山脈", "火山", "河川", "平野", "盆地", "湖"];
 // 点で囲んだ面として描く種類
-const AREA_KINDS = ["平野"];
+const AREA_KINDS = ["平野", "盆地", "湖"];
 // 1つのセットの印の数
 const MIN_MARKS = 4;
 const MAX_MARKS = 10;
@@ -21,6 +21,8 @@ const MIN_GAP = 24;
 // 線（山脈・川）どうしは、はしが近いだけならよい（支流の合流・河口や水源が近い川）。
 // 短いほうの線のこの割合以上が MIN_GAP より近いときだけ注意する
 const MAX_LINE_OVERLAP = 0.3;
+// 面（平野・盆地・湖）どうしは形で見分けられるので、ほぼくっついているときだけ注意する
+const MIN_AREA_GAP = 8;
 // 場所をタップ（locate）の許すはば。lib/mapSets.ts と同じ値にする
 const LOCATE_MIN_UNITS = 36;
 const LOCATE_LINE_FACTOR = 0.7;
@@ -74,7 +76,7 @@ for (const { line, r } of read("places.csv")) {
     ...(r.出典メモ && { source: r.出典メモ }),
     checked: r.確認 === "済",
   };
-  if (place.area && place.coords.length < 3) err("平野は、まわりの点を3つ以上（「;」区切り）");
+  if (place.area && place.coords.length < 3) err("平野・盆地・湖は、まわりの点を3つ以上（「;」区切り）");
   if (!place.area && r.種類 !== "火山" && place.coords.length < 2) err("山脈・川は線なので、2点以上（「;」区切り）");
   if (place.coords.some(({ lat, lng }) => lat < 20 || lat > 46 || lng < 122 || lng > 154)) err("座標が日本の外です（北緯,東経 の順）");
   places.push(place);
@@ -177,7 +179,7 @@ for (const { line, r } of read("sets.csv")) {
         continue;
       }
       const d = gap(pa, pb, a.area, b.area);
-      if (d < MIN_GAP) warnings.push(`sets.csv:${line} [${r.id}] 「${members[i].name}」と「${members[j].name}」の印が近すぎて見分けにくい（${d.toFixed(0)}）。地方の地図にするか、どちらかを外してください`);
+      if (d < (a.area ? MIN_AREA_GAP : MIN_GAP)) warnings.push(`sets.csv:${line} [${r.id}] 「${members[i].name}」と「${members[j].name}」の印が近すぎて見分けにくい（${d.toFixed(0)}）。地方の地図にするか、どちらかを外してください`);
     }
   // 場所をタップ：陸地をでたらめにタップしたとき、それぞれの地名で正解になる割合
   if (members.length === names.length) {
