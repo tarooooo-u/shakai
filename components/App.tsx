@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUESTION_BY_ID } from "@/data";
 import { useFavorites } from "@/lib/favorites";
-import { placeChoices, recordKey, runTargets, type MapMode, type MapRun } from "@/lib/mapSets";
+import { filterSet, placeChoices, recordKey, runTargets, type KindGroup, type MapMode, type MapRun } from "@/lib/mapSets";
 import { isGraduated, needsReview, removeLegacyData, useProgress } from "@/lib/progress";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
 import { buildChoices, type Style } from "@/lib/session";
@@ -90,9 +90,9 @@ function Main({ profile }: { profile: Profile }) {
     setRunKey((k) => k + 1);
     show({ kind: "quiz", session: { ids, style, choices, graduatedBefore } });
   };
-  // 白地図ドリル。onlyIds があればその地名だけ（結果画面の「もう一度」）
-  const startMap = (setId: string, mode: MapMode, style: Style, onlyIds?: string[]) => {
-    const set = MAP_SETS.find((s) => s.id === setId)!;
+  // 白地図ドリル。group でしぼった種類だけ。onlyIds があればその地名だけ（結果画面の「もう一度」）
+  const startMap = (setId: string, group: KindGroup, mode: MapMode, style: Style, onlyIds?: string[]) => {
+    const set = filterSet(MAP_SETS.find((s) => s.id === setId)!, group, PLACE_BY_ID);
     const targets = runTargets(set, mode, progress, onlyIds);
     const choices =
       mode === "name" && style === "choice"
@@ -100,7 +100,7 @@ function Main({ profile }: { profile: Profile }) {
         : {};
     const graduatedBefore = targets.filter((id) => isGraduated(progress[recordKey(id, mode)]));
     setRunKey((k) => k + 1);
-    show({ kind: "mapquiz", run: { setId, mode, style, targets, choices, graduatedBefore } });
+    show({ kind: "mapquiz", run: { setId, group, mode, style, targets, choices, graduatedBefore } });
   };
   const openList = (title: string, ids: string[]) => show({ kind: "list", title, ids });
   const back = () => show(null);
@@ -153,7 +153,7 @@ function Main({ profile }: { profile: Profile }) {
           ids={run.targets}
           results={results}
           graduated={run.targets.filter((id) => isGraduated(progress[recordKey(id, run.mode)]) && !run.graduatedBefore.includes(id))}
-          onRetry={(ids) => startMap(run.setId, run.mode, run.style, ids)}
+          onRetry={(ids) => startMap(run.setId, run.group, run.mode, run.style, ids)}
           onHome={back}
           describe={(id) => {
             const p = PLACE_BY_ID.get(id)!;

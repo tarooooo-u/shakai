@@ -15,9 +15,13 @@ const KINDS = ["山地・山脈", "火山", "岬", "河川", "平野", "盆地",
 const POINT_KINDS = ["火山", "岬"];
 // 点で囲んだ面として描く種類
 const AREA_KINDS = ["平野", "盆地", "湖", "半島", "島"];
-// 1つのセットの印の数
-const MIN_MARKS = 4;
-const MAX_MARKS = 10;
+// 種類のまとまり（アプリの「しぼる」）。lib/mapSets.ts の KIND_GROUPS と同じにする。
+// 地図は全国＋7地方で、種類でしぼって出すので、見分けやすさ・勘で当たる確率は同じまとまりの中だけで調べる
+const KIND_GROUPS = { 山地・山脈: "山・火山", 火山: "山・火山", 河川: "川・湖", 湖: "川・湖", 平野: "平野・盆地", 盆地: "平野・盆地", 半島: "半島・島・岬", 島: "半島・島・岬", 岬: "半島・島・岬" };
+// 全国の地図はまとめずに種類ごとに出す（lib/mapSets.ts の byKindOnly）
+const BY_KIND_ONLY = ["全国"];
+// 1つの地図で、いっしょに出す印の数の上限
+const MAX_GROUP_MARKS = 16;
 // 印どうしがこれより近いと見分けにくい（地図の横はば 800 のときの長さ）
 const MIN_GAP = 24;
 // 線（山脈・川）どうしは、はしが近いだけならよい（支流の合流・河口や水源が近い川）。
@@ -162,8 +166,13 @@ for (const { line, r } of read("sets.csv")) {
   const missing = names.filter((n) => !byName.has(n));
   if (missing.length) err(`places.csv にない地名：${missing.join("、")}`);
   if (new Set(names).size !== names.length) err("地名が重複しています");
-  if (names.length < MIN_MARKS || names.length > MAX_MARKS) err(`地名は ${MIN_MARKS}〜${MAX_MARKS} 個`);
   const members = names.filter((n) => byName.has(n)).map((n) => byName.get(n));
+  // いっしょに出すまとまり（全国は種類、地方は種類のまとまり）
+  const group = (p) => (BY_KIND_ONLY.includes(r.地図) ? p.kind : KIND_GROUPS[p.kind]);
+  for (const g of new Set(members.map(group))) {
+    const n = members.filter((p) => group(p) === g).length;
+    if (n > MAX_GROUP_MARKS) err(`「${g}」の地名が ${n} 個（${MAX_GROUP_MARKS}個まで）`);
+  }
   const proj = projector(E);
   for (const p of members) {
     used.add(p.id);
@@ -173,8 +182,8 @@ for (const { line, r } of read("sets.csv")) {
   }
   for (let i = 0; i < members.length; i++)
     for (let j = i + 1; j < members.length; j++) {
-      // 平野と川・山はかさなってよい（平野の中を川が流れる）
-      if (!members[i].area !== !members[j].area) continue;
+      // 平野と川・山はかさなってよい（平野の中を川が流れる）。ちがうまとまりの地名もくらべない（いっしょに出ても形で見分けられる）
+      if (!members[i].area !== !members[j].area || group(members[i]) !== group(members[j])) continue;
       const [a, b] = [members[i], members[j]];
       const [sa, sb] = [shape(a, proj), shape(b, proj)];
       if (!a.area && a.coords.length > 1 && b.coords.length > 1) {
@@ -199,11 +208,11 @@ for (const { line, r } of read("sets.csv")) {
     const land = landPoints(E);
     for (const [lat, lng] of land) {
       const q = proj({ lat, lng });
-      // 判定は lib/mapSets.ts の judgeLocate と同じ：範囲に入っていて、もっと近いほかの地名（面どうし・面以外どうし）の範囲に入っていなければ正解
+      // 判定は lib/mapSets.ts の judgeLocate と同じ：範囲に入っていて、もっと近いほかの地名（同じまとまりの、面どうし・面以外どうし）の範囲に入っていなければ正解
       const d = marks.map((m) => distTo(q, m.sh));
       marks.forEach((m, i) => {
         if (d[i] > m.tol) return;
-        const blocked = marks.some((o, j) => j !== i && !o.p.area === !m.p.area && d[j] < d[i] && d[j] <= o.tol);
+        const blocked = marks.some((o, j) => j !== i && !o.p.area === !m.p.area && group(o.p) === group(m.p) && d[j] < d[i] && d[j] <= o.tol);
         if (!blocked) hits[i]++;
       });
     }

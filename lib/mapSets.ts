@@ -31,6 +31,44 @@ export type MapSet = {
 };
 
 /**
+ * 種類のまとまり。地図は「全国＋7地方」の8枚だけにして、出す種類はこれでしぼる。
+ * 場所をタップでは、同じまとまりの地名どうしだけをくらべる（平野の中の川・半島の中の湖などは×にしない）。
+ * scripts/build-mapsets.mjs の KIND_GROUPS と同じにする
+ */
+export const KIND_GROUPS = [
+  { id: "mountain", label: "山・火山", kinds: ["山地・山脈", "火山"] },
+  { id: "water", label: "川・湖", kinds: ["河川", "湖"] },
+  { id: "plain", label: "平野・盆地", kinds: ["平野", "盆地"] },
+  { id: "coast", label: "半島・島・岬", kinds: ["半島", "島", "岬"] },
+] as const;
+/** "all"・まとまりの id・種類の名前（全国の地図は種類ごとに出す） */
+export type KindGroup = (typeof KIND_GROUPS)[number]["id"] | "all" | (string & {});
+
+export const kindGroupOf = (kind: string) => KIND_GROUPS.find((g) => (g.kinds as readonly string[]).includes(kind))?.id;
+
+/** しぼったとき、印がこれより少ない地図は出さない（えらぶ意味がないので） */
+export const MIN_FILTERED_MARKS = 3;
+
+/** 全国の地図は印が多くて近いので、まとめずに種類ごと（山地・山脈だけ、火山だけ…）に出す */
+export const byKindOnly = (set: MapSet) => set.extent === "全国";
+
+/** 種類のまとまりの名前。種類の名前ならそのまま */
+export const groupLabel = (group: KindGroup) => KIND_GROUPS.find((g) => g.id === group)?.label ?? (group === "all" ? undefined : group);
+
+/** しぼった種類だけにした地図セット（地図に出す印・出す問題・4択の誤答はこの中から）。group は「all」・まとまりの id・種類の名前 */
+export function filterSet(set: MapSet, group: KindGroup, places: Map<string, Place>): MapSet {
+  if (group === "all") return set;
+  const match = KIND_GROUPS.some((g) => g.id === group) ? (kind: string) => kindGroupOf(kind) === group : (kind: string) => kind === group;
+  return { ...set, places: set.places.filter((id) => match(places.get(id)!.kind)) };
+}
+
+/** その地図の、group の中の種類（全国の地図を種類ごとに分けるため） */
+export function kindsIn(set: MapSet, group: KindGroup, places: Map<string, Place>) {
+  const kinds = new Set(filterSet(set, group, places).places.map((id) => places.get(id)!.kind));
+  return KIND_GROUPS.flatMap((g) => g.kinds).filter((k) => kinds.has(k));
+}
+
+/**
  * pick = 名前を見て、地図の印をえらぶ（B）
  * name = 光っている印の名前を答える（A。カードか4択）
  * locate = 印のない地図で、場所をタップする（C）
@@ -48,6 +86,8 @@ export const recordKey = (placeId: string, mode: MapMode) => `${placeId}@${mode}
 /** 地図セットの1回分 */
 export type MapRun = {
   setId: string;
+  /** しぼった種類 */
+  group: KindGroup;
   mode: MapMode;
   /** name のときだけ使う */
   style: Style;
@@ -146,8 +186,8 @@ export function locateTolerance(extent: string, place: Place) {
 
 /**
  * ok = 正解 / close = おしい（許すはばの2倍まで。記録は×）/ ng = ちがう。
- * ほかの地名の範囲に入っていたら ng（other にその地名）。
- * ただし平野（面）とそれ以外はくらべない（平野の中を川が流れているので）
+ * 同じ種類のまとまりのほかの地名で、もっと近くてその範囲に入っていたら ng（other にその地名）。
+ * 面とそれ以外（平野の中の川・半島の先の岬）や、ちがう種類のまとまり（盆地の中の湖）はくらべない
  */
 export function judgeLocate(set: MapSet, target: Place, pin: LatLng, places: Map<string, Place>) {
   const P = planar(MAP_EXTENTS[set.extent]);
@@ -157,7 +197,7 @@ export function judgeLocate(set: MapSet, target: Place, pin: LatLng, places: Map
   const other = set.places
     .filter((id) => id !== target.id)
     .map((id) => places.get(id)!)
-    .filter((p) => !p.area === !target.area)
+    .filter((p) => !p.area === !target.area && kindGroupOf(p.kind) === kindGroupOf(target.kind))
     .find((p) => {
       const dp = unitsToPlace(set.extent, p, x, y);
       return dp < d && dp <= locateTolerance(set.extent, p);

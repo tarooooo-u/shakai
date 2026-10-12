@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MAP_SETS, PLACE_BY_ID } from "@/data";
-import { judgeLocate, locateTolerance, recordKey, type MapRun, type Place } from "@/lib/mapSets";
+import { filterSet, groupLabel, judgeLocate, locateTolerance, recordKey, type MapRun, type Place } from "@/lib/mapSets";
 import type { LatLng } from "@/lib/mapTask";
 import { recordGrade, useProgress } from "@/lib/progress";
 import type { Grade } from "@/lib/types";
@@ -25,7 +25,8 @@ const GRADE_BUTTON: Record<Grade, string> = {
  *   locate … 印のない地図で、場所をタップしてピンを立てる（自動で採点）
  */
 export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (results: Record<string, Grade>) => void }) {
-  const set = MAP_SETS.find((s) => s.id === run.setId)!;
+  const set = filterSet(MAP_SETS.find((s) => s.id === run.setId)!, run.group, PLACE_BY_ID);
+  const label = groupLabel(run.group);
   const { targets, mode } = run;
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -120,7 +121,7 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
 
       <article className="space-y-4 rounded-3xl border border-line bg-surface p-4 shadow-sm sm:p-6">
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted">白地図・{set.title}</span>
+          <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted">白地図・{set.title}{label && `（${label}）`}</span>
           <StatusBadge record={progress[recordKey(target.id, mode)]} />
         </div>
 

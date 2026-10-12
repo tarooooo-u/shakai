@@ -22,6 +22,8 @@ const COLOR: Record<MarkTone, string> = {
 
 // 指やマウスがこの距離（画面の px）より近い印をえらぶ
 const HIT_PX = 28;
+// 面の中をタップしたとき、線・点がこれより近ければ線・点をえらぶ（平野の中の川）。遠ければ面（湖のそばの岬より湖）
+const ON_LINE_PX = 12;
 
 /** 白地図に山脈の線・火山の▲を描く。onPick があれば、印をタップしてえらべる */
 export default function MarksMap({
@@ -40,21 +42,30 @@ export default function MarksMap({
   const P = getProjection(extent);
   const size = useMarkSize(svg, P.W);
 
-  // いちばん近い印（HIT_PX より遠ければなし）。平野の中を流れる川もえらべるように、線・点を平野より先にさがす
+  // いちばん近い印（HIT_PX より遠ければなし）。面の中なら、その面（面の中に面があれば小さいほう）。
+  // ただし線・点の上（ON_LINE_PX まで）なら線・点（平野の中を流れる川もえらべるように）
   const nearest = (e: PointerEvent<SVGSVGElement>) => {
     const pt = toMapPoint(svg.current, e);
     if (!pt) return null;
-    for (const areas of [false, true]) {
-      let best: string | null = null;
-      let bestD = HIT_PX / pt.pxPerUnit;
-      for (const { place } of marks) {
-        if (!place.area !== !areas) continue;
+    let line: string | null = null;
+    let lineD = HIT_PX / pt.pxPerUnit;
+    let area: string | null = null;
+    let areaD = HIT_PX / pt.pxPerUnit;
+    let areaSize = Infinity;
+    for (const { place } of marks) {
+      if (!place.area) {
         const d = unitsToPlace(extent, place, pt.x, pt.y);
-        if (d < bestD) [best, bestD] = [place.id, d];
+        if (d < lineD) [line, lineD] = [place.id, d];
+        continue;
       }
-      if (best) return best;
+      // 小さい面は、まわりの丸の中も面の中とする
+      const circle = smallAreaCircle(P, place, size);
+      const d = circle ? Math.max(0, Math.hypot(pt.x - circle.cx, pt.y - circle.cy) - circle.r) : unitsToPlace(extent, place, pt.x, pt.y);
+      const s = d === 0 ? boxSize(place) : 0;
+      if (d < areaD || (d === 0 && areaD === 0 && s < areaSize)) [area, areaD, areaSize] = [place.id, d, s];
     }
-    return null;
+    if (line && (lineD <= ON_LINE_PX / pt.pxPerUnit || areaD > 0)) return line;
+    return area ?? line;
   };
   const track = (e: PointerEvent<SVGSVGElement>) => {
     setHover(nearest(e));
@@ -101,6 +112,22 @@ export default function MarksMap({
       </Loupe>
     </>
   );
+}
+
+/** 小さい面に重ねる丸（大きい面なら null） */
+function smallAreaCircle(P: Projection, place: Place, sw: number) {
+  const p = pts(P, place);
+  const xs = p.map((q) => q[0]);
+  const ys = p.map((q) => q[1]);
+  if (Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) >= 18 * sw) return null;
+  return { cx: (Math.max(...xs) + Math.min(...xs)) / 2, cy: (Math.max(...ys) + Math.min(...ys)) / 2, r: 12 * sw };
+}
+
+/** 面の大きさのめやす（緯度・経度の囲みの広さ） */
+function boxSize(place: Place) {
+  const lats = place.coords.map((c) => c.lat);
+  const lngs = place.coords.map((c) => c.lng);
+  return (Math.max(...lats) - Math.min(...lats)) * (Math.max(...lngs) - Math.min(...lngs));
 }
 
 /** 地図が小さく表示されるとき（スマホ）は、印・線・名前を太く大きくする。線の太さなどの倍率を返す */
@@ -166,17 +193,14 @@ function MarkShape({ P, mark, sw }: { P: Projection; mark: Mark; sw: number }) {
   const points = p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   if (place.area) {
     // 小さい面（湖・盆地）は地図の上で点のようになるので、まわりに丸を重ねて目立たせる
-    const xs = p.map((q) => q[0]);
-    const ys = p.map((q) => q[1]);
-    const small = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) < 18 * sw;
-    const [cx, cy] = [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2];
+    const small = smallAreaCircle(P, place, sw);
     return (
       <g opacity={opacity}>
         {small && (
           <circle
-            cx={cx}
-            cy={cy}
-            r={12 * sw}
+            cx={small.cx}
+            cy={small.cy}
+            r={small.r}
             fill={color}
             fillOpacity={glow ? 0.25 : 0.08}
             stroke={color}
