@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUESTION_BY_ID } from "@/data";
+import { MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUESTION_BY_ID, SHEETS } from "@/data";
 import { useFavorites } from "@/lib/favorites";
 import { filterSet, placeChoices, recordKey, runTargets, type KindGroup, type MapMode, type MapRun } from "@/lib/mapSets";
 import { isGraduated, needsReview, removeLegacyData, useProgress } from "@/lib/progress";
@@ -17,6 +17,8 @@ import Sidebar, { THEMES, type Page } from "./Sidebar";
 import Credits from "./Credits";
 import MapSetQuiz from "./MapSetQuiz";
 import MapSetsPage from "./MapSetsPage";
+import SheetView from "./SheetView";
+import SheetsPage from "./SheetsPage";
 import TopicPage from "./TopicPage";
 
 export type Session = {
@@ -35,7 +37,8 @@ type Overlay =
   | { kind: "result"; session: Session; results: Record<string, Grade> }
   | { kind: "list"; title: string; ids: string[] }
   | { kind: "mapquiz"; run: MapRun }
-  | { kind: "mapresult"; run: MapRun; results: Record<string, Grade> };
+  | { kind: "mapresult"; run: MapRun; results: Record<string, Grade> }
+  | { kind: "sheet"; id: string };
 
 const ALL_UNITS = Object.values(UNITS).flat();
 
@@ -162,6 +165,10 @@ function Main({ profile }: { profile: Profile }) {
         />
       );
     }
+    if (overlay?.kind === "sheet") {
+      const sheet = SHEETS.find((s) => s.id === overlay.id);
+      if (sheet) return <SheetView key={sheet.id} sheet={sheet} onBack={back} />;
+    }
     if (overlay?.kind === "list") {
       return (
         <QuestionList
@@ -227,6 +234,8 @@ function Main({ profile }: { profile: Profile }) {
       }
       case "mapsets":
         return <MapSetsPage progress={progress} onStart={startMap} />;
+      case "sheets":
+        return <SheetsPage onOpen={(id) => show({ kind: "sheet", id })} />;
       case "credits":
         return <Credits />;
       case "all":
@@ -279,7 +288,8 @@ function Main({ profile }: { profile: Profile }) {
             {profile.name}
           </button>
         </div>
-        <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8">{content}</main>
+        {/* データシートは図が横に広いので、はばを広くとる */}
+        <main className={`mx-auto w-full px-4 py-5 sm:px-6 sm:py-8 ${overlay?.kind === "sheet" ? "max-w-5xl" : "max-w-3xl"}`}>{content}</main>
       </div>
     </div>
   );

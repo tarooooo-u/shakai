@@ -56,3 +56,4 @@ next-env.d.ts
 /private/
 /data/images.generated.json
 /data/mapsets.generated.json
+/data/sheets.generated.json

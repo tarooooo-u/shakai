@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "questions": "node scripts/build-questions.mjs && node scripts/build-mapsets.mjs",
+    "questions": "node scripts/build-questions.mjs && node scripts/build-mapsets.mjs && node scripts/build-sheets.mjs",
     "predev": "npm run questions",
     "dev": "next dev",
     "prebuild": "npm run questions",
@@ -11,6 +11,7 @@
     "lint": "eslint",
     "stats": "node scripts/update-stats.mjs",
     "climate": "node scripts/update-climate.mjs",
+    "trade": "node scripts/update-trade.mjs",
     "images": "node scripts/fetch-images.mjs",
     "map": "node scripts/update-map.mjs"
   },

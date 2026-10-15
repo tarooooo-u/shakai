@@ -15,6 +15,7 @@ export default function Credits() {
         <h2 className="text-xs font-bold tracking-wider text-muted">データ</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed">
           <li>統計データの一部は、政府統計総合窓口(e-Stat)のAPI機能を使用して取得しています。サービスの内容は国によって保証されたものではありません。</li>
+          <li>貿易のデータは財務省「貿易統計」、発電量のデータは資源エネルギー庁「エネルギー白書」「総合エネルギー統計」をもとに作成しています。</li>
           <li>雨温図は気象庁の平年値（1991〜2020年）をもとに作成しています（出典：気象庁ホームページ）。</li>
           <li>白地図は Natural Earth のデータ（パブリックドメイン）をもとに作成しています。</li>
         </ul>

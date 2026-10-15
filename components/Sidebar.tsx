@@ -1,6 +1,6 @@
 "use client";
 
-import { MAP_SETS, QUESTIONS } from "@/data";
+import { MAP_SETS, QUESTIONS, SHEETS } from "@/data";
 import { useFavorites } from "@/lib/favorites";
 import { createLocalStore } from "@/lib/localStore";
 import { needsReview, type Progress } from "@/lib/progress";
@@ -16,6 +16,7 @@ export type Page =
   | { kind: "category"; category: Category }
   | { kind: "theme"; tag: string }
   | { kind: "mapsets" }
+  | { kind: "sheets" }
   | { kind: "all" }
   | { kind: "credits" };
 
@@ -186,12 +187,9 @@ export default function Sidebar({
         <Item {...nav} key={t.tag} to={{ kind: "theme", tag: t.tag }} mark={t.mark} label={t.label} count={THEME_COUNT[t.tag]} />
       ))}
 
-      {MAP_SETS.length > 0 && (
-        <>
-          <Heading collapsed={collapsed}>地図</Heading>
-          <Item {...nav} to={{ kind: "mapsets" }} mark="図" label="白地図ドリル" count={MAP_SETS.length} />
-        </>
-      )}
+      {(MAP_SETS.length > 0 || SHEETS.length > 0) && <Heading collapsed={collapsed}>地図・データ</Heading>}
+      {MAP_SETS.length > 0 && <Item {...nav} to={{ kind: "mapsets" }} mark="図" label="白地図ドリル" count={MAP_SETS.length} />}
+      {SHEETS.length > 0 && <Item {...nav} to={{ kind: "sheets" }} mark="表" label="データ" count={SHEETS.length} />}
 
       <Heading collapsed={collapsed}>おうちの人</Heading>
       <Item {...nav} to={{ kind: "all" }} mark="≡" label="問題と答えの一覧" />
