@@ -54,6 +54,15 @@
 - ページ画像は `scripts/pdf-pages.py` で作業用フォルダ（リポジトリの外）に書き出し、終わったら削除する
 - Gemini で作った問題候補（CSV）を渡されたら、`docs/Gemini用プロンプト_過去問.md` の「Claude 側での取り込み」にしたがう
 
+## データシートを増やすとき（「〇〇のデータシートを作って」）
+
+1. `content/README.md` の「データシート」を読み、`kind`（tree / cards / bars）を決める。既存の `content/sheets/*.json` を見本にする
+2. 数字は元の統計から取る。e-Stat にあれば `scripts/estat.mjs` で探し、`scripts/update-trade.mjs` のように取得スクリプトにする（`package.json` に `npm run` を足す）。APIがないものは公式のExcelから写し、`source` に出典と年、`sourceNote` に取り方を書く
+   - 塾の資料・『日本のすがた』『日本国勢図会』の数字や図は写さない。年・数字が塾の資料とずれたら理由を `note` に書く
+3. 組織図・説明文は自作の文。事実の正確性が最優先で、自信がない点は報告する
+4. `npm run questions` でチェックを通し、プレビューで iPad の縦（820×1180）・横（1180×820）を確認する（はみ出し・赤い紙・タップ・×）
+5. 追加したシートと要確認点を報告する
+
 ## 画像
 
 - 問題用の画像は Wikimedia Commons から `npm run images` で取得（パブリックドメイン／CC0／CC BY／CC BY-SA のみ）。塾教材や検索で見つけただけの画像は使わない
