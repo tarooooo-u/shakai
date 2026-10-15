@@ -233,13 +233,13 @@ function Cards({ sheet }: { sheet: Extract<Sheet, { kind: "cards" }> }) {
             <tbody>
               {c.rows.map((r, i) => (
                 <tr key={i} className="border-t border-line">
-                  <td className="w-10 py-1.5 pl-3 text-xs text-muted">{i + 1}位</td>
+                  <td className="w-10 whitespace-nowrap py-1.5 pr-2 pl-3 text-xs text-muted">{r.head ?? `${i + 1}位`}</td>
                   <td className="py-1.5">
                     <Hide k={`${c.title}/${i + 1}`} field="label">
                       {r.label}
                     </Hide>
                   </td>
-                  <td className="w-16 py-1.5 pr-3 text-right tabular-nums text-muted">
+                  <td className="min-w-16 whitespace-nowrap py-1.5 pr-3 pl-2 text-right tabular-nums text-muted">
                     <Hide k={`${c.title}/${i + 1}.value`} field="value">
                       {r.value}
                     </Hide>

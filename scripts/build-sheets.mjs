@@ -66,7 +66,10 @@ for (const file of readdirSync(DIR).filter((f) => f.endsWith(".json")).sort()) {
       if (titles.has(c.title)) err(`カード「${c.title}」が2つあります`);
       titles.add(c.title);
       if (!c.rows?.length) err(`カード「${c.title}」に rows がありません`);
-      for (const r of c.rows ?? []) if (!r.label || !r.value) err(`カード「${c.title}」の行に label・value がありません`);
+      for (const r of c.rows ?? []) {
+        if (!r.label || !r.value) err(`カード「${c.title}」の行に label・value がありません`);
+        if (r.head !== undefined && (typeof r.head !== "string" || !r.head)) err(`カード「${c.title}」の head は文字で書く`);
+      }
     }
     out.columns = s.columns;
     out.cards = s.cards;

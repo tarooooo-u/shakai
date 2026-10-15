@@ -34,7 +34,8 @@ export type Sheet = SheetBase &
     | {
         kind: "cards";
         columns: [string, string, string];
-        cards: { title: string; sub?: string; rows: { label: string; value: string }[] }[];
+        /** head は左の「1位」の代わりに出す見出し（「北海道」「日本」など。かくさない） */
+        cards: { title: string; sub?: string; rows: { label: string; value: string; head?: string }[] }[];
       }
     | {
         kind: "bars";

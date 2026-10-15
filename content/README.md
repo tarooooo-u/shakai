@@ -94,7 +94,7 @@
 - `modes` はかくし方。`{ "id": "name", "label": "名前をかくす", "hide": ["name"] }` のように、かくす文字の種類を `hide` に書く
 - `kind` は3つ
   - `tree`（組織図）：`root` から `children` でつなぐ。箱は `name`（名前）と `desc`（説明）。`label` だけの箱は「中央」「地方」などのまとまり（`tone`：amber / green / gray / blue で色）。まとまりの中の箱の子は下に出る。かくせる種類：`name` / `desc`。名前はシートの中で重ならないようにする（記録のキー）
-  - `cards`（国ごとの順位表など）：`columns`（3つ）と `cards`（`title`・`sub`・`rows: [{label, value}]`）。かくせる種類：`title` / `label` / `value`
+  - `cards`（国ごとの順位表など）：`columns`（3つ）と `cards`（`title`・`sub`・`rows: [{label, value}]`）。かくせる種類：`title` / `label` / `value`。左には「1位」「2位」…が出る。同じ順位や「北海道」「長い川」など順位でない見出しにしたい行は `head` に書く（かくさない）
   - `bars`（割合の帯グラフ）：`series`（項目名）と `rows`（`label` と `values`。割合はアプリが計算する）。4%より細い所は数字を書かない。かくせる種類：`series` / `value` / `row`
 - タップでめくる → もう一度タップで ×（もう一度で × を消す）。× はかくし方ごとに保存し、「×だけかくす」で復習できる
 - 統計の数字は塾の資料から写さず、元の統計から取る
