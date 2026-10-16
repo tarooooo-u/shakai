@@ -14,7 +14,8 @@
     "trade": "node scripts/update-trade.mjs",
     "images": "node scripts/fetch-images.mjs",
     "map": "node scripts/update-map.mjs",
-    "agri": "node scripts/update-agri.mjs"
+    "agri": "node scripts/update-agri.mjs",
+    "industry": "node scripts/update-industry.mjs"
   },
   "dependencies": {
     "next": "16.3.8",

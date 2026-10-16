@@ -100,6 +100,7 @@
 - 統計の数字は塾の資料から写さず、元の統計から取る
   - `imports-by-country.json`（主な貿易相手国からの輸入品）：`npm run trade` で e-Stat の貿易統計から作る（`scripts/update-trade.mjs`）。新しい年は表ID・年を差し替えて再実行
   - `agri-*.json`（農産物・家畜の多い県：果物・野菜3枚・工芸作物など・家畜の6枚）：`npm run agri` で e-Stat の作物統計・畜産統計から作る（`scripts/update-agri.mjs`）。新しい年は表IDを差し替え、note・source の年も直して再実行
+  - `industry-belts.json`（工業地帯・工業地域の業種別出荷額）：`npm run industry` で e-Stat の経済構造実態調査（製造業事業所調査）から作る（`scripts/update-industry.mjs`）。工業地帯は都府県全体で数える。新しい年は表ID・年を差し替えて再実行
   - `electricity-mix.json`（発電量の割合）：資源エネルギー庁のExcel（自動では取れない）から手で書き写した値（億kWh）。新しい年度は総合エネルギー統計の時系列表「4.電源構成(発電量)」から足す
 
 ## Excelで編集するとき
