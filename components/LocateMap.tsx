@@ -1,16 +1,15 @@
 "use client";
 
-import { useRef, type PointerEvent } from "react";
+import { useRef } from "react";
 import { insidePolygon, placeRings, type Place } from "@/lib/mapSets";
 import type { LatLng, MapVerdict } from "@/lib/mapTask";
-import { Loupe, MapLayers, getProjection, toMapPoint, useLoupe, type Projection } from "./mapBase";
+import { Loupe, MapLayers, getProjection, mapBoxStyle, usePinPlacement, type Projection } from "./mapBase";
 import { MarkLayer, areaPath, useMarkSize, type Mark } from "./MarksMap";
 
 const VERDICT_COLOR: Record<MapVerdict, string> = { ok: "var(--ok)", close: "var(--unsure)", ng: "var(--ng)" };
 
 /**
- * 白地図ドリルの「場所をタップ」。印のない地図にピンを立てる（ドラッグで動かせる）。
- * 指で触っているあいだは拡大鏡を出す。
+ * 白地図ドリルの「場所をタップ」。印のない地図にピンを立てる（ピンをつかんで動かせる。usePinPlacement）。
  * answer を渡したら（決定したあと）、正解の印と、正解にする範囲を表示する。
  */
 export default function LocateMap({
@@ -29,22 +28,10 @@ export default function LocateMap({
   answer?: { place: Place; tol: number; verdict: MapVerdict };
 }) {
   const svg = useRef<SVGSVGElement>(null);
-  const dragging = useRef(false);
-  const { loupe, update: updateLoupe, hide: hideLoupe } = useLoupe(svg);
   const P = getProjection(extent);
   const size = useMarkSize(svg, P.W);
   const decided = answer !== undefined;
-
-  const place = (e: PointerEvent<SVGSVGElement>) => {
-    const pt = toMapPoint(svg.current, e);
-    if (!pt) return;
-    onPin(P.invert(Math.max(0, Math.min(P.W, pt.x)), Math.max(0, Math.min(P.H, pt.y))));
-    updateLoupe(e);
-  };
-  const release = () => {
-    dragging.current = false;
-    hideLoupe();
-  };
+  const { loupe, svgProps, handle } = usePinPlacement({ svg, P, pin, onPin, active: !decided });
 
   const color = answer ? VERDICT_COLOR[answer.verdict] : "var(--accent)";
   const shown: Mark[] = answer ? [...marks, { place: answer.place, tone: "ok", label: true }] : marks;
@@ -70,26 +57,21 @@ export default function LocateMap({
 
   return (
     <>
-      <svg
-        ref={svg}
-        viewBox={`0 0 ${P.W} ${P.H}`}
-        role="img"
-        aria-label="白地図。答えの場所をタップしてピンを立てる"
-        className={`mx-auto block max-h-[70vh] w-full touch-none rounded-2xl border border-line select-none ${decided ? "" : "cursor-crosshair"}`}
-        onPointerDown={(e) => {
-          if (decided) return;
-          dragging.current = true;
-          e.currentTarget.setPointerCapture(e.pointerId);
-          place(e);
-        }}
-        onPointerMove={(e) => dragging.current && !decided && place(e)}
-        onPointerUp={release}
-        onPointerCancel={release}
-      >
-        <MapLayers P={P} />
-        {draw(1)}
-      </svg>
-      <Loupe P={P} at={decided ? null : loupe}>
+      <div className="relative mx-auto" style={mapBoxStyle(P)}>
+        <svg
+          ref={svg}
+          viewBox={`0 0 ${P.W} ${P.H}`}
+          role="img"
+          aria-label="白地図。答えの場所をタップしてピンを立てる"
+          className={`block size-full touch-pan-y rounded-2xl border border-line select-none ${decided ? "" : "cursor-crosshair"}`}
+          {...svgProps}
+        >
+          <MapLayers P={P} />
+          {draw(1)}
+        </svg>
+        {handle}
+      </div>
+      <Loupe P={P} at={loupe}>
         {draw}
       </Loupe>
     </>

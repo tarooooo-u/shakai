@@ -114,6 +114,86 @@ export function SmallChip({
   );
 }
 
+/**
+ * 画面の下に固定する帯（「答えを見る」「〇△×」「次へ」など）。
+ * 地図や長い解説があっても、スクロールせずに押せるように
+ */
+export function BottomBar({ children }: { children: ReactNode }) {
+  return (
+    <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:px-6">
+      {children}
+    </div>
+  );
+}
+
+const GRADE_BUTTON: Record<Grade, string> = {
+  ok: "border-ok text-ok hover:bg-ok/10",
+  unsure: "border-unsure text-unsure hover:bg-unsure/10",
+  ng: "border-ng text-ng hover:bg-ng/10",
+};
+
+/** 答えを見たあとの採点。self は 〇△×（自己採点）、auto は自動で採点したあとの「次へ」（正解なら「まぐれ」も） */
+export function GradeButtons({
+  self,
+  correct,
+  onGrade,
+}: {
+  self: boolean;
+  correct: boolean;
+  onGrade: (g: Grade) => void;
+}) {
+  if (self)
+    return (
+      <div className="grid grid-cols-3 gap-2.5">
+        {(["ok", "unsure", "ng"] as const).map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => onGrade(g)}
+            className={`flex min-h-16 items-center justify-center gap-2 rounded-2xl border-2 bg-surface transition-colors ${GRADE_BUTTON[g]}`}
+          >
+            <span className="text-3xl leading-none font-bold">{GRADE_META[g].mark}</span>
+            <span className="text-sm font-semibold">{GRADE_META[g].label}</span>
+          </button>
+        ))}
+      </div>
+    );
+  return (
+    <div className={`grid gap-2.5 ${correct ? "grid-cols-2" : "grid-cols-1"}`}>
+      <button
+        type="button"
+        onClick={() => onGrade(correct ? "ok" : "ng")}
+        className="min-h-16 rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90"
+      >
+        次へ
+      </button>
+      {correct && (
+        <button
+          type="button"
+          onClick={() => onGrade("unsure")}
+          className={`min-h-16 rounded-2xl border-2 bg-surface font-bold transition-colors ${GRADE_BUTTON.unsure}`}
+        >
+          △ まぐれだった
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** 帯の大きなボタン（「答えを見る」「けってい」） */
+export function BarButton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="min-h-16 w-full rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
 /** ☆／★ お気に入りの切り替え */
 export function FavoriteButton({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (

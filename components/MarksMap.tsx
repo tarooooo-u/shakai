@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
 import { placeRings, unitsToPlace, type Place } from "@/lib/mapSets";
-import { Loupe, MapLayers, getProjection, toMapPoint, useLoupe, type Projection } from "./mapBase";
+import { Loupe, MapLayers, getProjection, mapBoxStyle, toMapPoint, useLoupe, type Projection } from "./mapBase";
 
 /**
  * normal = ふつう / target = 光らせる（「この印の名前は？」）/ ok = 正解 / ng = えらんだがちがう /
@@ -90,7 +90,9 @@ export default function MarksMap({
         viewBox={`0 0 ${P.W} ${P.H}`}
         role="img"
         aria-label={onPick ? "白地図。答えの印をタップする" : "白地図"}
-        className={`mx-auto block max-h-[70vh] w-full touch-none rounded-2xl border border-line select-none ${onPick ? "cursor-pointer" : ""}`}
+        style={mapBoxStyle(P)}
+        // 指でスワイプしたらスクロールする（pointercancel が来て、印はえらばない）
+        className={`mx-auto block touch-pan-y rounded-2xl border border-line select-none ${onPick ? "cursor-pointer" : ""}`}
         onPointerDown={(e) => {
           if (!onPick) return;
           dragging.current = true;

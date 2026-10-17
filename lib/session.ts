@@ -13,6 +13,15 @@ export const MODE_LABEL: Record<Mode, string> = {
   all: "卒業した問題もふくめて全部",
 };
 
+/** ホームのボタン用の短い名前 */
+export const MODE_SHORT: Record<Mode, string> = {
+  active: "卒業していない",
+  unseen: "まだ解いていない",
+  review: "要復習",
+  ng: "×だけ",
+  all: "卒業もふくめて全部",
+};
+
 export const STYLE_LABEL: Record<Style, string> = {
   card: "カード（自己採点）",
   choice: "4択",

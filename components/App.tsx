@@ -291,8 +291,14 @@ function Main({ profile }: { profile: Profile }) {
             {profile.name}
           </button>
         </div>
-        {/* データシートは図が横に広いので、はばを広くとる */}
-        <main className={`mx-auto w-full px-4 py-5 sm:px-6 sm:py-8 ${overlay?.kind === "sheet" ? "max-w-5xl" : "max-w-3xl"}`}>{content}</main>
+        {/* データシートは図が横に広いので、はばを広くとる。白地図ドリルは横向きのとき地図と問題を横に並べる */}
+        <main
+          className={`mx-auto w-full px-4 py-5 sm:px-6 sm:py-8 ${
+            overlay?.kind === "sheet" ? "max-w-5xl" : overlay?.kind === "mapquiz" ? "max-w-3xl lg:landscape:max-w-6xl" : "max-w-3xl"
+          }`}
+        >
+          {content}
+        </main>
       </div>
     </div>
   );

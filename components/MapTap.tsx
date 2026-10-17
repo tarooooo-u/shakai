@@ -1,15 +1,14 @@
 "use client";
 
-import { useRef, type PointerEvent } from "react";
+import { useRef } from "react";
 import { formatLat, formatLng, judgeMap, mapError, type LatLng, type MapTask } from "@/lib/mapTask";
-import { Loupe, MapLayers, getProjection, toMapPoint, useLoupe, type Projection } from "./mapBase";
+import { Loupe, MapLayers, getProjection, mapBoxStyle, usePinPlacement, type Projection } from "./mapBase";
 
 const VERDICT_COLOR = { ok: "var(--ok)", close: "var(--unsure)", ng: "var(--ng)" };
 
 /**
- * 白地図をタップ（クリック）してピンを立てる。ドラッグで動かせる。
+ * 白地図をタップ（クリック）してピンを立てる。ピンをつかんで動かせる（usePinPlacement）。
  * ピンには、経線の問題なら縦線、緯線なら横線、交点なら十字の補助線が付く。
- * 指で触っているあいだは、指の上に拡大鏡を出す（指でピンがかくれないように）。
  * decided になったら正解の線・点と、正解にする範囲を表示する。
  */
 export default function MapTap({
@@ -24,21 +23,9 @@ export default function MapTap({
   decided: boolean;
 }) {
   const svg = useRef<SVGSVGElement>(null);
-  const dragging = useRef(false);
-  const { loupe, update: updateLoupe, hide: hideLoupe } = useLoupe(svg);
   const P = getProjection(task.extent);
   const { W, H, x, y } = P;
-
-  const place = (e: PointerEvent<SVGSVGElement>) => {
-    const pt = toMapPoint(svg.current, e);
-    if (!pt) return;
-    onPin(P.invert(Math.max(0, Math.min(W, pt.x)), Math.max(0, Math.min(H, pt.y))));
-    updateLoupe(e);
-  };
-  const release = () => {
-    dragging.current = false;
-    hideLoupe();
-  };
+  const { loupe, svgProps, handle } = usePinPlacement({ svg, P, pin, onPin, active: !decided });
 
   const verdict = decided && pin ? judgeMap(task, pin) : null;
   const color = verdict ? VERDICT_COLOR[verdict] : "var(--accent)";
@@ -64,27 +51,22 @@ export default function MapTap({
 
   return (
     <>
-      <svg
-        ref={svg}
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="白地図。答えの場所をタップしてピンを立てる"
-        className={`mx-auto block max-h-[70vh] w-full touch-none rounded-2xl border border-line select-none ${decided ? "" : "cursor-crosshair"}`}
-        onPointerDown={(e) => {
-          if (decided) return;
-          dragging.current = true;
-          e.currentTarget.setPointerCapture(e.pointerId);
-          place(e);
-        }}
-        onPointerMove={(e) => dragging.current && !decided && place(e)}
-        onPointerUp={release}
-        onPointerCancel={release}
-      >
-        <MapLayers P={P} />
-        {decided && <Answer task={task} P={P} />}
-        {pinMarks(1)}
-      </svg>
-      <Loupe P={P} at={decided ? null : loupe}>
+      <div className="relative mx-auto" style={mapBoxStyle(P)}>
+        <svg
+          ref={svg}
+          viewBox={`0 0 ${W} ${H}`}
+          role="img"
+          aria-label="白地図。答えの場所をタップしてピンを立てる"
+          className={`block size-full touch-pan-y rounded-2xl border border-line select-none ${decided ? "" : "cursor-crosshair"}`}
+          {...svgProps}
+        >
+          <MapLayers P={P} />
+          {decided && <Answer task={task} P={P} />}
+          {pinMarks(1)}
+        </svg>
+        {handle}
+      </div>
+      <Loupe P={P} at={loupe}>
         {pinMarks}
       </Loupe>
     </>

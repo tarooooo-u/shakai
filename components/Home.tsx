@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { QUESTIONS } from "@/data";
+import { loadLastFilter, saveLastFilter } from "@/lib/homeFilter";
 import { isActive, isGraduated, needsReview, resetProgress, statusOf, type Progress } from "@/lib/progress";
 import { useCurrentProfile } from "@/lib/profiles";
 import {
   DEFAULT_FILTER,
   MODE_LABEL,
+  MODE_SHORT,
   STYLE_LABEL,
   filterFromQuery,
   filterToQuery,
@@ -49,10 +51,13 @@ export default function Home({
 }) {
   const params = useSearchParams();
   const profile = useCurrentProfile();
-  // 保護者が送った URL（?u=江戸&n=7 など）で開いたときはその条件を初期値にする
+  // 保護者が送った URL（?u=江戸&n=7 など）で開いたときはその条件、なければ前回スタートした条件を初期値にする
   const [linked] = useState(() => filterFromQuery(new URLSearchParams(params.toString())));
-  const [filter, setFilter] = useState<Filter>(linked ?? DEFAULT_FILTER);
+  const [filter, setFilter] = useState<Filter>(() => linked ?? loadLastFilter() ?? DEFAULT_FILTER);
   const [copied, setCopied] = useState(false);
+  // 単元・分類・テーマはふだん使わないので、たたんでおく（選んであるときは開く）
+  const narrowed = filter.units.length + filter.kinds.length + filter.tags.length > 0;
+  const [detailOpen, setDetailOpen] = useState(narrowed);
   const set = (patch: Partial<Filter>) => {
     setFilter({ ...filter, ...patch });
     setCopied(false);
@@ -82,7 +87,10 @@ export default function Home({
   const willAsk = filter.count > 0 ? Math.min(filter.count, matched.length) : matched.length;
   const reviewIds = QUESTIONS.filter((q) => needsReview(progress[q.id])).map((q) => q.id);
   const activeIds = QUESTIONS.filter((q) => isActive(progress[q.id])).map((q) => q.id);
-  const startFiltered = () => onStart(pickQuestions(QUESTIONS, filter, progress), filter.style);
+  const startFiltered = () => {
+    saveLastFilter(filter);
+    onStart(pickQuestions(QUESTIONS, filter, progress), filter.style);
+  };
 
   const copyLink = async () => {
     const query = filterToQuery(filter);
@@ -96,12 +104,21 @@ export default function Home({
   };
 
   return (
-    <div className="space-y-7">
-      <header className="space-y-1">
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h1 className="text-2xl font-bold sm:text-3xl">社会ドリル</h1>
-        <p className="text-sm text-muted">
-          中学受験 社会の一問一答。答えを見て〇△×で自己採点、または4択で。2回続けて〇なら「卒業」です。
-        </p>
+        {/* 全体の進み具合 */}
+        <div className="flex gap-4 text-sm text-muted">
+          <span>
+            解いた <b className="text-base text-ink tabular-nums">{stats.seen}</b>/{QUESTIONS.length}
+          </span>
+          <span>
+            卒業 <b className="text-base text-ok tabular-nums">{stats.graduated}</b>
+          </span>
+          <span>
+            要復習 <b className="text-base text-ng tabular-nums">{stats.review}</b>
+          </span>
+        </div>
       </header>
 
       {linked && (
@@ -119,46 +136,37 @@ export default function Home({
         </div>
       )}
 
-      {/* 全体の進み具合 */}
-      <div className="grid grid-cols-3 gap-2.5">
-        <Stat label="解いた" value={stats.seen} total={QUESTIONS.length} />
-        <Stat label="卒業" value={stats.graduated} total={QUESTIONS.length} tone="text-ok" />
-        <Stat label="要復習" value={stats.review} tone="text-ng" />
-      </div>
-
       {/* クイックスタート */}
-      <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-2.5">
         <button
           type="button"
           disabled={activeIds.length === 0}
           onClick={() => onStart(shuffle(activeIds).slice(0, 7), "card")}
-          className="min-h-16 rounded-2xl bg-accent px-5 py-4 text-left text-accent-ink shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="rounded-2xl bg-accent px-4 py-3 text-left text-accent-ink shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          <div className="text-lg font-bold">{activeIds.length > 0 ? "サクッと7問" : "全部卒業！"}</div>
+          <div className="font-bold sm:text-lg">{activeIds.length > 0 ? "サクッと7問" : "全部卒業！"}</div>
           <div className="text-xs opacity-80">
             {activeIds.length > 0
-              ? `卒業していない ${activeIds.length}問からランダム${stats.check > 0 ? `（確認の時期 ${stats.check}問）` : ""}`
-              : "「卒業した問題もふくめて全部」で復習できます"}
+              ? `卒業していない ${activeIds.length}問から${stats.check > 0 ? `（確認 ${stats.check}問）` : ""}`
+              : "「卒業もふくめて全部」で復習できます"}
           </div>
         </button>
         <button
           type="button"
           disabled={reviewIds.length === 0}
           onClick={() => onStart(shuffle(reviewIds), "card")}
-          className="min-h-16 rounded-2xl border-2 border-ng/60 bg-surface px-5 py-4 text-left transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:border-line disabled:opacity-60"
+          className="rounded-2xl border-2 border-ng/60 bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:border-line disabled:opacity-60"
         >
-          <div className="text-lg font-bold text-ng">要復習をやり直す</div>
-          <div className="text-xs text-muted">
-            {reviewIds.length > 0 ? `△・× の ${reviewIds.length} 問` : "まだありません"}
-          </div>
+          <div className="font-bold text-ng sm:text-lg">要復習をやり直す</div>
+          <div className="text-xs text-muted">{reviewIds.length > 0 ? `△・× の ${reviewIds.length} 問` : "まだありません"}</div>
         </button>
       </div>
 
-      {/* 条件を選んで演習 */}
-      <div className="space-y-6 rounded-2xl border border-line bg-surface p-4 sm:p-6">
+      {/* 条件を選んで演習。よく使うものを上に、iPad ならスクロールなしでスタートまで届くように */}
+      <div className="space-y-3.5 rounded-2xl border border-line bg-surface p-4 sm:p-5">
         <h2 className="text-base font-bold">条件を選んで演習</h2>
 
-        <Section title="分野">
+        <Row title="分野">
           <div className="grid grid-cols-3 gap-2">
             {CATEGORIES.map((c) => {
               const s = stats.byCategory[c];
@@ -175,66 +183,29 @@ export default function Home({
                       units: selected ? filter.units.filter((u) => !UNITS[c].includes(u)) : filter.units,
                     })
                   }
-                  className={`rounded-xl border p-3 text-left transition-colors ${
+                  className={`rounded-xl border px-3 py-2 text-left transition-colors ${
                     selected ? "border-accent bg-accent/10" : "border-line bg-surface opacity-60"
                   }`}
                 >
                   <div className="flex items-baseline justify-between gap-1">
                     <span className="font-bold">{CATEGORY_LABEL[c]}</span>
-                    <span className="text-xs text-muted">{s.total}問</span>
+                    <span className="text-[11px] text-muted">
+                      卒業{s.graduated}/{s.total}
+                    </span>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
                     <div
                       className="h-full rounded-full bg-ok"
                       style={{ width: `${s.total ? (s.graduated / s.total) * 100 : 0}%` }}
                     />
                   </div>
-                  <div className="mt-1 text-[11px] text-muted">
-                    卒業{s.graduated}　要復習{s.review}
-                  </div>
                 </button>
               );
             })}
           </div>
-        </Section>
+        </Row>
 
-        {filter.categories.length > 0 && (
-          <Section title="単元（選ばなければ全部）">
-            <div className="space-y-3">
-              {CATEGORIES.filter((c) => filter.categories.includes(c)).map((c) => (
-                <div key={c} className="flex flex-wrap gap-1.5">
-                  {UNITS[c]
-                    .filter((u) => UNIT_COUNT.has(u))
-                    .map((u) => (
-                      <SmallChip
-                        key={u}
-                        selected={filter.units.includes(u)}
-                        onClick={() => set({ units: toggle(filter.units, u) })}
-                      >
-                        {u}
-                        <span className="ml-1 opacity-60">{UNIT_COUNT.get(u)}</span>
-                      </SmallChip>
-                    ))}
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {KIND_COUNT.length > 0 && (
-          <Section title="分類（選ばなければ全部）">
-            <div className="flex flex-wrap gap-1.5">
-              {KIND_COUNT.map(([k, n]) => (
-                <SmallChip key={k} selected={filter.kinds.includes(k)} onClick={() => set({ kinds: toggle(filter.kinds, k) })}>
-                  {k}
-                  <span className="ml-1 opacity-60">{n}</span>
-                </SmallChip>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        <Section title="難易度">
+        <Row title="難易度">
           <div className="flex flex-wrap gap-2">
             {DIFFICULTIES.map((d) => (
               <Chip
@@ -246,45 +217,19 @@ export default function Home({
               </Chip>
             ))}
           </div>
-        </Section>
+        </Row>
 
-        {TAG_COUNT.length > 0 && (
-          <Section title="テーマ（選ばなければ全部）">
-            <div className="flex flex-wrap gap-1.5">
-              {TAG_COUNT.map(([t, n]) => (
-                <SmallChip key={t} selected={filter.tags.includes(t)} onClick={() => set({ tags: toggle(filter.tags, t) })}>
-                  {t}
-                  <span className="ml-1 opacity-60">{n}</span>
-                </SmallChip>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        <Section title="出題">
+        <Row title="出題">
           <div className="flex flex-wrap gap-2">
-            {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
+            {(Object.keys(MODE_SHORT) as Mode[]).map((m) => (
               <Chip key={m} selected={filter.mode === m} onClick={() => set({ mode: m })}>
-                {MODE_LABEL[m]}
+                {MODE_SHORT[m]}
               </Chip>
             ))}
           </div>
-        </Section>
+        </Row>
 
-        <Section title="解き方">
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(STYLE_LABEL) as Style[]).map((s) => (
-              <Chip key={s} selected={filter.style === s} onClick={() => set({ style: s })}>
-                {STYLE_LABEL[s]}
-              </Chip>
-            ))}
-          </div>
-          {filter.style === "choice" && (
-            <p className="text-xs text-muted">選択肢のない問題（「すべて答えよ」など）はカードで出ます。</p>
-          )}
-        </Section>
-
-        <Section title="問題数">
+        <Row title="問題数">
           <div className="flex flex-wrap items-center gap-2">
             {COUNTS.map((n) => (
               <Chip key={n} selected={filter.count === n} onClick={() => set({ count: n })}>
@@ -298,12 +243,105 @@ export default function Home({
                 checked={filter.shuffle}
                 onChange={(e) => set({ shuffle: e.target.checked })}
               />
-              順番をシャッフル
+              シャッフル
             </label>
           </div>
-        </Section>
+        </Row>
 
-        <div className="space-y-2.5">
+        <Row title="解き方">
+          <div className="flex flex-wrap items-center gap-2">
+            {(Object.keys(STYLE_LABEL) as Style[]).map((s) => (
+              <Chip key={s} selected={filter.style === s} onClick={() => set({ style: s })}>
+                {STYLE_LABEL[s]}
+              </Chip>
+            ))}
+            {filter.style === "choice" && (
+              <span className="text-xs text-muted">選択肢のない問題はカードで出ます</span>
+            )}
+          </div>
+        </Row>
+
+        {/* くわしく選ぶ（単元・分類・テーマ） */}
+        <div className="rounded-xl border border-line">
+          <div className="flex items-center gap-2 pr-2">
+            <button
+              type="button"
+              aria-expanded={detailOpen}
+              onClick={() => setDetailOpen(!detailOpen)}
+              className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-3 text-left text-sm"
+            >
+              <span className="text-muted">{detailOpen ? "▾" : "▸"}</span>
+              <span className="shrink-0 font-bold">くわしく選ぶ</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted">
+                {narrowed ? <span className="font-semibold text-accent">{describeDetail(filter)}</span> : "単元・分類・テーマ"}
+              </span>
+            </button>
+            {narrowed && (
+              <button
+                type="button"
+                onClick={() => set({ units: [], kinds: [], tags: [] })}
+                className="min-h-9 shrink-0 rounded-lg border border-line px-2.5 text-xs font-semibold text-muted hover:text-ink"
+              >
+                解除
+              </button>
+            )}
+          </div>
+          {detailOpen && (
+            <div className="space-y-5 border-t border-line p-3">
+              {filter.categories.length > 0 && (
+                <Section title="単元（選ばなければ全部）">
+                  <div className="space-y-3">
+                    {CATEGORIES.filter((c) => filter.categories.includes(c)).map((c) => (
+                      <div key={c} className="flex flex-wrap gap-1.5">
+                        {UNITS[c]
+                          .filter((u) => UNIT_COUNT.has(u))
+                          .map((u) => (
+                            <SmallChip
+                              key={u}
+                              selected={filter.units.includes(u)}
+                              onClick={() => set({ units: toggle(filter.units, u) })}
+                            >
+                              {u}
+                              <span className="ml-1 opacity-60">{UNIT_COUNT.get(u)}</span>
+                            </SmallChip>
+                          ))}
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              {KIND_COUNT.length > 0 && (
+                <Section title="分類（選ばなければ全部）">
+                  <div className="flex flex-wrap gap-1.5">
+                    {KIND_COUNT.map(([k, n]) => (
+                      <SmallChip key={k} selected={filter.kinds.includes(k)} onClick={() => set({ kinds: toggle(filter.kinds, k) })}>
+                        {k}
+                        <span className="ml-1 opacity-60">{n}</span>
+                      </SmallChip>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              {TAG_COUNT.length > 0 && (
+                <Section title="テーマ（選ばなければ全部）">
+                  <div className="flex flex-wrap gap-1.5">
+                    {TAG_COUNT.map(([t, n]) => (
+                      <SmallChip key={t} selected={filter.tags.includes(t)} onClick={() => set({ tags: toggle(filter.tags, t) })}>
+                        {t}
+                        <span className="ml-1 opacity-60">{n}</span>
+                      </SmallChip>
+                    ))}
+                  </div>
+                </Section>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* スタートは画面の下に固定（くわしく選ぶを開いても押せるように） */}
+        <div className="sticky bottom-0 z-10 -mx-4 bg-surface/95 px-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-5 sm:px-5">
           <button
             type="button"
             disabled={willAsk === 0}
@@ -312,28 +350,29 @@ export default function Home({
           >
             {willAsk === 0 ? "条件に合う問題がありません" : `${willAsk}問 スタート`}
           </button>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            <button
-              type="button"
-              disabled={matched.length === 0}
-              onClick={() =>
-                onOpenList(
-                  "問題と答えの一覧",
-                  matched.map((q) => q.id),
-                )
-              }
-              className="min-h-12 rounded-2xl border border-line bg-surface px-4 text-sm font-bold transition-colors hover:bg-surface-2 disabled:opacity-40"
-            >
-              一覧で見る（おうちの人が出題）
-            </button>
-            <button
-              type="button"
-              onClick={copyLink}
-              className="min-h-12 rounded-2xl border border-line bg-surface px-4 text-sm font-bold transition-colors hover:bg-surface-2"
-            >
-              {copied ? "✓ URLをコピーしました" : "この条件のURLをコピー"}
-            </button>
-          </div>
+        </div>
+
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <button
+            type="button"
+            disabled={matched.length === 0}
+            onClick={() =>
+              onOpenList(
+                "問題と答えの一覧",
+                matched.map((q) => q.id),
+              )
+            }
+            className="min-h-11 rounded-xl border border-line bg-surface px-4 text-sm font-bold transition-colors hover:bg-surface-2 disabled:opacity-40"
+          >
+            一覧で見る（おうちの人が出題）
+          </button>
+          <button
+            type="button"
+            onClick={copyLink}
+            className="min-h-11 rounded-xl border border-line bg-surface px-4 text-sm font-bold transition-colors hover:bg-surface-2"
+          >
+            {copied ? "✓ URLをコピーしました" : "この条件のURLをコピー"}
+          </button>
         </div>
       </div>
 
@@ -354,12 +393,30 @@ export default function Home({
         >
           学習記録をリセット
         </button>
+        <p className="w-full text-xs text-muted">
+          答えを見て〇△×で自己採点、または4択で。2回続けて〇なら「卒業」です。
+        </p>
         <p className="w-full text-[11px] leading-relaxed text-muted">
           統計データの一部は、政府統計総合窓口(e-Stat)のAPI機能を使用して取得しています。サービスの内容は国によって保証されたものではありません。雨温図は気象庁の平年値（1991〜2020年）をもとに作成しています（出典：気象庁ホームページ）。
         </p>
       </footer>
     </div>
   );
+}
+
+/** 見出しを左、ボタンを右に並べる（せまい画面では上下） */
+function Row({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-1.5 sm:grid sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:items-center sm:gap-3 sm:space-y-0">
+      <h3 className="text-xs font-bold tracking-wider text-muted">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+/** くわしく選んだ条件を短く */
+function describeDetail(f: Filter) {
+  return [f.units.join("・"), f.kinds.join("・"), f.tags.length > 0 && `テーマ：${f.tags.join("・")}`].filter(Boolean).join(" ／ ");
 }
 
 /** 共有リンクの条件を人が読める形に */
@@ -375,16 +432,4 @@ function describe(f: Filter) {
   ]
     .filter(Boolean)
     .join(" ／ ");
-}
-
-function Stat({ label, value, total, tone }: { label: string; value: number; total?: number; tone?: string }) {
-  return (
-    <div className="rounded-2xl border border-line bg-surface px-3 py-3 text-center">
-      <div className={`text-2xl font-bold tabular-nums ${tone ?? ""}`}>
-        {value}
-        {total !== undefined && <span className="text-sm font-semibold text-muted"> / {total}</span>}
-      </div>
-      <div className="text-xs text-muted">{label}</div>
-    </div>
-  );
 }

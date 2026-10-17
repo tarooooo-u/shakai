@@ -9,18 +9,12 @@ import type { Grade, Question } from "@/lib/types";
 import type { Session } from "./App";
 import MapTap, { mapFeedback } from "./MapTap";
 import RainTempChart from "./RainTempChart";
-import { CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META, StatusBadge } from "./ui";
+import { BarButton, BottomBar, CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META, GradeButtons, StatusBadge } from "./ui";
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
 
 /** 複数の画像に付ける記号 */
 const KANA = ["ア", "イ", "ウ", "エ", "オ", "カ"];
-
-const GRADE_BUTTON: Record<Grade, string> = {
-  ok: "border-ok text-ok hover:bg-ok/10",
-  unsure: "border-unsure text-unsure hover:bg-unsure/10",
-  ng: "border-ng text-ng hover:bg-ng/10",
-};
 
 export default function Quiz({
   session,
@@ -174,7 +168,7 @@ export default function Quiz({
           <div className="space-y-2">
             <MapTap task={mapTask} pin={pin} onPin={setPin} decided={revealed} />
             {!revealed && (
-              <p className="text-center text-sm text-muted">地図をタップしてピンを立てよう。ドラッグで動かせるよ。</p>
+              <p className="text-center text-sm text-muted">地図をタップしてピンを立てよう。ピンをつかむと動かせるよ。</p>
             )}
           </div>
         )}
@@ -241,7 +235,7 @@ export default function Quiz({
           </div>
         )}
 
-        {revealed ? (
+        {revealed && (
           <Explanation
             q={q}
             verdict={
@@ -249,77 +243,46 @@ export default function Quiz({
             }
             note={mapTask && pin ? mapFeedback(mapTask, pin) : undefined}
           />
-        ) : mapTask ? (
-          <button
-            type="button"
-            disabled={!pin}
-            onClick={() => setRevealed(true)}
-            className="min-h-14 w-full rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            けってい
-          </button>
-        ) : (
-          !options && (
-            <button
-              type="button"
-              onClick={() => setRevealed(true)}
-              className="min-h-14 w-full rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90"
-            >
-              答えを見る
-            </button>
-          )
         )}
       </article>
 
-      {/* 採点 */}
-      {revealed && !auto && (
-        <div className="grid grid-cols-3 gap-2.5">
-          {GRADES.map((g) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => grade(g)}
-              className={`min-h-20 rounded-2xl border-2 bg-surface transition-colors ${GRADE_BUTTON[g]}`}
-            >
-              <div className="text-3xl leading-none font-bold">{GRADE_META[g].mark}</div>
-              <div className="mt-1 text-sm font-semibold">{GRADE_META[g].label}</div>
-            </button>
-          ))}
-        </div>
-      )}
-      {revealed && auto && (
-        <div className={`grid gap-2.5 ${correct ? "grid-cols-2" : "grid-cols-1"}`}>
-          <button
-            type="button"
-            onClick={() => grade(correct ? "ok" : "ng")}
-            className="min-h-16 rounded-2xl bg-accent text-lg font-bold text-accent-ink transition-opacity hover:opacity-90"
-          >
-            次へ
-          </button>
-          {correct && (
-            <button
-              type="button"
-              onClick={() => grade("unsure")}
-              className={`min-h-16 rounded-2xl border-2 bg-surface font-bold transition-colors ${GRADE_BUTTON.unsure}`}
-            >
-              △ まぐれだった
-            </button>
-          )}
-        </div>
-      )}
-
-      <p className="hidden text-center text-xs text-muted sm:block">
+      {/* マウスのある端末（PC）だけ */}
+      <p className="hidden text-center text-xs text-muted pointer-fine:block">
         {mapTask
           ? "キーボード：Enter で決定・次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
           : options
           ? "キーボード：1〜4 で選ぶ ／ Enter で次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
           : "キーボード：Space で答え ／ 1・2・3 で 〇・△・× ／ F でお気に入り ／ Esc で終了"}
       </p>
+
+      {/* 答える操作は画面の下に固定（4択は選択肢を押すので、答える前は出さない） */}
+      {(revealed || !options) && (
+        <BottomBar>
+          {revealed ? (
+            <div className="space-y-2">
+              {/* 地図は大きいので、答えと判定を帯にも出す（解説までスクロールしなくてよいように） */}
+              {mapVerdict && (
+                <p className="text-center text-sm font-bold">
+                  <span className={VERDICT_TEXT[mapVerdict]}>{MAP_VERDICT[mapVerdict]}</span>　答え：{q.answer}
+                </p>
+              )}
+              <GradeButtons self={!auto} correct={correct} onGrade={grade} />
+            </div>
+          ) : mapTask ? (
+            <BarButton disabled={!pin} onClick={() => setRevealed(true)}>
+              けってい
+            </BarButton>
+          ) : (
+            <BarButton onClick={() => setRevealed(true)}>答えを見る</BarButton>
+          )}
+        </BottomBar>
+      )}
     </div>
   );
 }
 
 const MAP_VERDICT = { ok: "正解！", close: "おしい！", ng: "ざんねん" };
+const VERDICT_TEXT = { ok: "text-ok", close: "text-unsure", ng: "text-ng" };
 
 function Explanation({ q, verdict, note }: { q: Question; verdict?: string; note?: string }) {
   return (
