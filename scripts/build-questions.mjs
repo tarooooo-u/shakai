@@ -11,6 +11,24 @@ const OUT = join(ROOT, "data", "questions.generated.json");
 const IMAGES_OUT = join(ROOT, "data", "images.generated.json");
 const UNITS = JSON.parse(readFileSync(join(ROOT, "content", "units.json"), "utf8"));
 
+// ダッシュボードの小見出し（content/unit-groups.json）：units.json の単元を、どれか1つのまとまりにちょうど1回ずつ入れる
+{
+  const groups = JSON.parse(readFileSync(join(ROOT, "content", "unit-groups.json"), "utf8"));
+  const problems = [];
+  for (const [category, units] of Object.entries(UNITS)) {
+    const listed = (groups[category] ?? []).flatMap((g) => g.units);
+    for (const u of units) {
+      const n = listed.filter((x) => x === u).length;
+      if (n !== 1) problems.push(`${category}「${u}」が ${n} 回`);
+    }
+    for (const u of listed) if (!units.includes(u)) problems.push(`${category}「${u}」は units.json にない`);
+  }
+  if (problems.length) {
+    console.error(`content/unit-groups.json と units.json が合いません：\n- ${problems.join("\n- ")}`);
+    process.exit(1);
+  }
+}
+
 // 問題用の画像（content/images.csv：npm run images で Wikimedia Commons から取得）
 const IMAGES = new Map();
 {

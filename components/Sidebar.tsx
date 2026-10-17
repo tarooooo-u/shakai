@@ -12,6 +12,7 @@ import SyncStatus from "./SyncStatus";
 /** サイドバーから移動できる画面 */
 export type Page =
   | { kind: "home" }
+  | { kind: "dashboard" }
   | { kind: "favorites" }
   | { kind: "review" }
   | { kind: "category"; category: Category }
@@ -166,6 +167,7 @@ export default function Sidebar({
       </button>
 
       <Item {...nav} to={{ kind: "home" }} mark="⌂" label="ホーム" />
+      <Item {...nav} to={{ kind: "dashboard" }} mark="◎" label="ダッシュボード" />
 
       <Heading collapsed={collapsed}>じぶんの問題</Heading>
       <Item {...nav} to={{ kind: "favorites" }} mark="★" label="お気に入り" count={favoriteCount} tone="text-unsure" />

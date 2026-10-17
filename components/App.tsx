@@ -6,9 +6,10 @@ import { useFavorites } from "@/lib/favorites";
 import { filterSet, placeChoices, recordKey, runTargets, type KindGroup, type MapMode, type MapRun } from "@/lib/mapSets";
 import { isGraduated, needsReview, removeLegacyData, useProgress } from "@/lib/progress";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
-import { buildChoices, type Style } from "@/lib/session";
+import { loadLastFilter } from "@/lib/homeFilter";
+import { DEFAULT_FILTER, buildChoices, pickQuestions, type Filter, type Style } from "@/lib/session";
 import { startSync } from "@/lib/sync";
-import { CATEGORY_LABEL, UNITS, type Grade } from "@/lib/types";
+import { CATEGORY_LABEL, UNITS, type Category, type Grade } from "@/lib/types";
 import Home from "./Home";
 import ProfileGate, { ProfileBadge } from "./ProfileGate";
 import QuestionList from "./QuestionList";
@@ -16,6 +17,7 @@ import Quiz from "./Quiz";
 import Result from "./Result";
 import Sidebar, { THEMES, type Page } from "./Sidebar";
 import Credits from "./Credits";
+import Dashboard from "./Dashboard";
 import MapSetQuiz from "./MapSetQuiz";
 import MapSetsPage from "./MapSetsPage";
 import SheetView from "./SheetView";
@@ -108,6 +110,16 @@ function Main({ profile }: { profile: Profile }) {
     setRunKey((k) => k + 1);
     show({ kind: "mapquiz", run: { setId, group, mode, style, targets, choices, graduatedBefore } });
   };
+  // ダッシュボードで単元をタップ：その単元の卒業していない問題（全部卒業なら全部）を、ホームで前に選んだ難易度・問題数・解き方で
+  const startUnit = (category: Category, unit: string) => {
+    const last = loadLastFilter() ?? DEFAULT_FILTER;
+    const filter: Filter = { ...last, categories: [category], units: [unit], kinds: [], tags: [], mode: "active" };
+    let ids = pickQuestions(QUESTIONS, filter, progress);
+    if (ids.length === 0) ids = pickQuestions(QUESTIONS, { ...filter, mode: "all" }, progress);
+    // 難易度でしぼって0問なら、難易度もしぼらない
+    if (ids.length === 0) ids = pickQuestions(QUESTIONS, { ...filter, mode: "all", difficulties: DEFAULT_FILTER.difficulties }, progress);
+    start(ids, filter.style);
+  };
   const openList = (title: string, ids: string[]) => show({ kind: "list", title, ids });
   const back = () => show(null);
   // 演習中（問題・白地図ドリル）はメニューをしまう
@@ -189,6 +201,15 @@ function Main({ profile }: { profile: Profile }) {
     switch (page.kind) {
       case "home":
         return <Home progress={progress} onStart={start} onOpenList={openList} onOpenReview={() => navigate({ kind: "review" })} />;
+      case "dashboard":
+        return (
+          <Dashboard
+            progress={progress}
+            onStartUnit={startUnit}
+            onOpenMaps={() => navigate({ kind: "mapsets" })}
+            onOpenSheet={(id) => show({ kind: "sheet", id })}
+          />
+        );
       case "favorites":
         return (
           <QuestionList

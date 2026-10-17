@@ -1,5 +1,6 @@
 "use client";
 
+import { recordDay } from "./activity";
 import { createProfileStore } from "./profiles";
 import type { Grade } from "./types";
 
@@ -29,6 +30,7 @@ export function solvedCount(profileId: string) {
 }
 
 export function recordGrade(id: string, grade: Grade) {
+  recordDay();
   const current = store.get();
   const prev = current[id] ?? { ok: 0, unsure: 0, ng: 0, streak: 0 };
   store.set({

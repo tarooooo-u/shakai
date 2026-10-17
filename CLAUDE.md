@@ -14,6 +14,7 @@
   - 将来ログインを入れるときは「保護者アカウント（課金）の下に子どものプロフィール」の形にし、プロフィール id（UUID）の記録をそのまま取り込む
   - 〇が2回続いたら「卒業」してふだんの出題から外れる。14日・30日・60日後に「確認」で1回出し、△・×なら卒業取り消し
 - 問題データは `content/questions/{history,geography,civics}.csv`。書式は `content/README.md`、単元は `content/units.json`
+  - ダッシュボードの単元の小見出し（地方別・しくみ別など）は `content/unit-groups.json`。単元を足したらここにも入れる（`npm run questions` が確認する）
   - `scripts/build-questions.mjs` が検証して `data/questions.generated.json`（git 管理外）を作る
 - データシート（表・グラフ・組織図の一部をかくし、タップでめくる赤シート式）は `content/sheets/*.json`。書式は `content/README.md`。統計は元の統計から取る（塾の資料の数字を写さない）。記録は「シートid@かくし方」ごとの × の一覧
 - 白地図ドリル（1枚の地図に山脈の線・火山の▲を並べて答える）は `content/maps/places.csv`・`sets.csv`。書式は `content/README.md`。記録は「地名＠答え方」（例 `p0004@pick`）ごと
