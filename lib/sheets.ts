@@ -87,7 +87,7 @@ export const BAR_LABEL_MIN = 4;
 export type SheetRecord = { ng: string[]; last: number };
 export type SheetProgress = Record<string, SheetRecord>;
 
-const store = createProfileStore<SheetProgress>("sheets:v1", {});
+const store = createProfileStore<SheetProgress>("sheets:v1", {}, "entries");
 
 export const useSheetProgress = store.use;
 

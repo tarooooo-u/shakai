@@ -7,6 +7,7 @@ import { filterSet, placeChoices, recordKey, runTargets, type KindGroup, type Ma
 import { isGraduated, needsReview, removeLegacyData, useProgress } from "@/lib/progress";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
 import { buildChoices, type Style } from "@/lib/session";
+import { startSync } from "@/lib/sync";
 import { CATEGORY_LABEL, UNITS, type Grade } from "@/lib/types";
 import Home from "./Home";
 import ProfileGate, { ProfileBadge } from "./ProfileGate";
@@ -48,6 +49,8 @@ export default function App() {
 
   // プロフィールに分ける前の記録は使わない（リセット）
   useEffect(removeLegacyData, []);
+  // 学習記録をサーバーと同期する
+  useEffect(startSync, []);
 
   if (!hydrated) return null;
   if (!profile) return <ProfileGate />;

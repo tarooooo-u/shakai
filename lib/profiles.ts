@@ -2,10 +2,12 @@
 
 import { useSyncExternalStore } from "react";
 import { createLocalStore } from "./localStore";
+import { markChanged, registerDocs, type DocKind } from "./sync";
 
 /**
- * 同じ端末をきょうだいで使うためのプロフィール（ログインなし）。
- * 学習記録・お気に入りはプロフィールごとに分けて保存する。
+ * 同じ端末をきょうだいで使うためのプロフィール。
+ * 学習記録・お気に入りはプロフィールごとに分けて保存する（端末の localStorage と、サーバー。lib/sync.ts）。
+ * サーバーでは、Cloudflare Access でログインした保護者のメールの下にプロフィールが並ぶ。
  * id はランダムな値にしておき、将来ログインを入れたときにそのままアカウントへ取り込めるようにする。
  */
 export type Profile = { id: string; name: string; color: ProfileColor };
@@ -13,7 +15,15 @@ export type Profile = { id: string; name: string; color: ProfileColor };
 export const PROFILE_COLORS = ["accent", "ok", "unsure", "ng"] as const;
 export type ProfileColor = (typeof PROFILE_COLORS)[number];
 
-const store = createLocalStore<Profile[]>("shakai-drill:profiles:v1", []);
+const PROFILES_DOC = "profiles:v1";
+const store = createLocalStore<Profile[]>(`shakai-drill:${PROFILES_DOC}`, [], (prev, next) =>
+  markChanged(PROFILES_DOC, "whole", prev, next),
+);
+
+registerDocs({
+  resolve: (doc) => (doc === PROFILES_DOC ? { kind: "whole", get: store.get, setFromRemote: (v) => store.setFromRemote(v as Profile[]) } : null),
+  list: () => [PROFILES_DOC],
+});
 
 export const useProfiles = store.use;
 
@@ -80,17 +90,28 @@ const profileKeyPrefix = (id: string) => `shakai-drill:p:${id}:`;
 /**
  * プロフィールごとに別々の localStorage キーに保存するストア。
  * プロフィールが選ばれていないときは読み書きしない（空の値を返す）。
+ * kind はサーバーとのまぜ方（lib/sync.ts）。entries は値が { [キー]: { last, ... } } の形のときだけ
  */
-export function createProfileStore<T>(name: string, empty: T) {
+export function createProfileStore<T>(name: string, empty: T, kind: DocKind) {
+  const docOf = (id: string) => `p:${id}:${name}`;
   const stores = new Map<string, ReturnType<typeof createLocalStore<T>>>();
   const storeFor = (id: string) => {
     let s = stores.get(id);
     if (!s) {
-      s = createLocalStore<T>(`${profileKeyPrefix(id)}${name}`, empty);
+      s = createLocalStore<T>(`${profileKeyPrefix(id)}${name}`, empty, (prev, next) => markChanged(docOf(id), kind, prev, next));
       stores.set(id, s);
     }
     return s;
   };
+  registerDocs({
+    resolve: (doc) => {
+      const id = store.get().find((p) => doc === docOf(p.id))?.id;
+      if (!id) return null;
+      const s = storeFor(id);
+      return { kind, get: s.get, setFromRemote: (v) => s.setFromRemote(v as T) };
+    },
+    list: () => store.get().map((p) => docOf(p.id)),
+  });
   const noop = { get: () => empty, set: () => {} };
   const current = () => (currentId ? storeFor(currentId) : noop);
 

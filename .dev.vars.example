@@ -1,0 +1,3 @@
+# ローカルで API を試すとき用。.dev.vars にコピーして使う（git に入れない）
+# localhost のときだけ、Access のログインなしでこのメールの人として扱う
+DEV_USER_EMAIL=dev@example.com

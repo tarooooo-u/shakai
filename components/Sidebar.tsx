@@ -7,6 +7,7 @@ import { needsReview, type Progress } from "@/lib/progress";
 import { leaveProfile, type Profile } from "@/lib/profiles";
 import { CATEGORIES, CATEGORY_LABEL, type Category } from "@/lib/types";
 import { ProfileBadge } from "./ProfileGate";
+import SyncStatus from "./SyncStatus";
 
 /** サイドバーから移動できる画面 */
 export type Page =
@@ -194,6 +195,10 @@ export default function Sidebar({
       <Heading collapsed={collapsed}>おうちの人</Heading>
       <Item {...nav} to={{ kind: "all" }} mark="≡" label="問題と答えの一覧" />
       <Item {...nav} to={{ kind: "credits" }} mark="©" label="画像・データの出典" />
+
+      <div className="mt-auto pt-3">
+        <SyncStatus compact={collapsed} />
+      </div>
     </nav>
   );
 }

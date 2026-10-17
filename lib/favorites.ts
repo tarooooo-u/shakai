@@ -3,7 +3,7 @@
 import { createProfileStore } from "./profiles";
 
 // ★を付けた問題の id（付けた順）。プロフィールごと
-const store = createProfileStore<string[]>("favorites:v1", []);
+const store = createProfileStore<string[]>("favorites:v1", [], "whole");
 
 export const useFavorites = store.use;
 

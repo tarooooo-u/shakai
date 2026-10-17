@@ -1,0 +1,16 @@
+# Cloudflare Pages の設定（ビルド出力・D1 のつなぎ方）。ここに書いたものがダッシュボードの設定より優先される。
+# name は Cloudflare Pages のプロジェクト名と同じにする
+name = "shakai"
+pages_build_output_dir = "out"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Cloudflare Access（Zero Trust）のチームのドメインと、アプリの AUD タグ。秘密の値ではない
+ACCESS_TEAM_DOMAIN = "misty-water-e8f8.cloudflareaccess.com"
+ACCESS_AUD = "5b062f89bc54bd56da82e81cab610d78aeb49387c82aaa467c23fd02791d54ef"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "shakai"
+database_id = "38947e78-25cd-4f1a-b348-887096d461fd"
+migrations_dir = "migrations"

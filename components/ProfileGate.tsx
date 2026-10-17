@@ -10,6 +10,7 @@ import {
   type Profile,
   type ProfileColor,
 } from "@/lib/profiles";
+import SyncStatus from "./SyncStatus";
 
 const COLOR_STYLE: Record<ProfileColor, string> = {
   accent: "bg-accent text-accent-ink",
@@ -131,9 +132,9 @@ export default function ProfileGate() {
         </button>
       )}
 
-      <p className="text-center text-[11px] leading-relaxed text-muted">
-        学習記録は、名前ごとにこの端末だけに保存されます。
-      </p>
+      <div className="mx-auto w-fit">
+        <SyncStatus />
+      </div>
     </main>
   );
 }

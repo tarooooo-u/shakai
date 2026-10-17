@@ -4,8 +4,13 @@
 
 中学受験（最難関志望の小6）向け、社会の学習アプリ。将来は一般公開・マネタイズ予定（ログイン・Stripe）。
 
-- 今はクライアントのみ（静的書き出し → Cloudflare Pages）。学習記録は `lib/progress.ts` の localStorage
-  - きょうだいで同じ端末を使うため、ログインなしのプロフィール（`lib/profiles.ts`）ごとに保存。開くたびに「だれがやる？」を選ぶ
+- 画面は静的書き出し → Cloudflare Pages。サイト全体を Cloudflare Access（Zero Trust）で守り、許可したメールの人だけが開ける
+- 学習記録（`lib/progress.ts` など）は端末の localStorage に書き、`lib/sync.ts` がサーバー（Pages Functions `functions/api/sync.ts` ＋ D1）にも保存する
+  - サーバーでは Access でログインしたメールの下に記録を置く。問題ごとに更新時刻の新しいほうを残す。サーバーから取ってきても端末の記録は消さない
+  - 同期する記録を増やすときは `createProfileStore(名前, 空の値, "entries" | "whole")` で作る（entries は値が `{ キー: { last, … } }` の形のとき）。形式を変えるときは名前のバージョンを上げ、`functions/api/sync.ts` の DOC の形に合うか確認する
+  - D1 の表を変えるときは `migrations/` に SQL を足し、`npm run db:migrate`
+  - 「Cloudflare と同じ形でローカルで試す」は `npm run pages`（`.dev.vars` の DEV_USER_EMAIL でログインなしになる。localhost のときだけ）
+  - きょうだいで同じ端末を使うため、プロフィール（`lib/profiles.ts`）ごとに保存。開くたびに「だれがやる？」を選ぶ
   - 将来ログインを入れるときは「保護者アカウント（課金）の下に子どものプロフィール」の形にし、プロフィール id（UUID）の記録をそのまま取り込む
   - 〇が2回続いたら「卒業」してふだんの出題から外れる。14日・30日・60日後に「確認」で1回出し、△・×なら卒業取り消し
 - 問題データは `content/questions/{history,geography,civics}.csv`。書式は `content/README.md`、単元は `content/units.json`

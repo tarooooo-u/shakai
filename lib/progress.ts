@@ -17,9 +17,9 @@ export type QuestionRecord = {
 
 export type Progress = Record<string, QuestionRecord>;
 
-// 学習記録はこの端末のブラウザ（localStorage）に、プロフィールごとに保存する。
+// 学習記録はプロフィールごとに、この端末（localStorage）とサーバー（lib/sync.ts）に保存する。
 // 形式を変えるときは名前のバージョンを上げる。
-const store = createProfileStore<Progress>("progress:v2", {});
+const store = createProfileStore<Progress>("progress:v2", {}, "entries");
 
 export const useProgress = store.use;
 

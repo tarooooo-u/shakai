@@ -9,6 +9,8 @@
     "prebuild": "npm run questions",
     "build": "next build",
     "lint": "eslint",
+    "pages": "npm run build && wrangler d1 migrations apply shakai --local && wrangler pages dev out",
+    "db:migrate": "wrangler d1 migrations apply shakai --remote",
     "stats": "node scripts/update-stats.mjs",
     "climate": "node scripts/update-climate.mjs",
     "trade": "node scripts/update-trade.mjs",
@@ -23,6 +25,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261016.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -33,6 +36,7 @@
     "fflate": "^0.8.3",
     "sharp": "^0.35.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.151.1"
   }
 }
