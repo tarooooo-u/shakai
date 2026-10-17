@@ -34,8 +34,11 @@ export type Sheet = SheetBase &
     | {
         kind: "cards";
         columns: [string, string, string];
-        /** head は左の「1位」の代わりに出す見出し（「北海道」「日本」など。かくさない） */
-        cards: { title: string; sub?: string; rows: { label: string; value: string; head?: string }[] }[];
+        /**
+         * head は左の「1位」の代わりに出す見出し（「北海道」「日本」など。かくさない）。
+         * hideTop は「大事なところだけ」でかくす行の数（なければ isMainRow の決まりで決める）
+         */
+        cards: { title: string; sub?: string; hideTop?: number; rows: { label: string; value: string; head?: string }[] }[];
       }
     | {
         kind: "bars";
@@ -48,8 +51,34 @@ export type Sheet = SheetBase &
 /** かくせる文字1つ。key はシートの中で重ならない */
 export type Cell = { key: string; field: string };
 
-/** シートの中のかくせる文字を全部 */
-export function cellsOf(sheet: Sheet): Cell[] {
+type Card = Extract<Sheet, { kind: "cards" }>["cards"][number];
+
+/** 「大事なところだけ」でかくす割合（％）。これ以上ならかくす */
+export const MAIN_PERCENT = 10;
+/** 3位までは、これ以上ならかくす（入試でよく聞かれる。茶の三重 6.8% など） */
+export const TOP3_PERCENT = 5;
+
+/**
+ * 表の行が「大事なところ」か（「大事なところだけ」のときにかくす行か）。
+ * カードに hideTop があれば上からその数だけ。なければ1位、MAIN_PERCENT 以上、3位までで TOP3_PERCENT 以上の行。
+ * 値が割合（「36.5%」の形）でない行は、いつも大事なところとする
+ */
+export function isMainRow(card: Card, i: number) {
+  if (card.hideTop !== undefined) return i < card.hideTop;
+  if (i === 0) return true;
+  const m = /^(\d+(?:\.\d+)?)%$/.exec(card.rows[i].value);
+  if (!m) return true;
+  const p = Number(m[1]);
+  return p >= MAIN_PERCENT || (i < 3 && p >= TOP3_PERCENT);
+}
+
+/** 「大事なところだけ」と「ぜんぶ」で、かくす所が変わるシートか */
+export function hasMinorRows(sheet: Sheet) {
+  return sheet.kind === "cards" && sheet.cards.some((c) => c.rows.some((_, i) => !isMainRow(c, i)));
+}
+
+/** シートの中のかくせる文字を全部。onlyMain なら、表の大事でない行（isMainRow）の県名・割合はのぞく */
+export function cellsOf(sheet: Sheet, onlyMain = false): Cell[] {
   const cells: Cell[] = [];
   if (sheet.kind === "tree") {
     const walk = (n: TreeNode) => {
@@ -62,6 +91,7 @@ export function cellsOf(sheet: Sheet): Cell[] {
     for (const c of sheet.cards) {
       cells.push({ key: c.title, field: "title" });
       c.rows.forEach((_, i) => {
+        if (onlyMain && !isMainRow(c, i)) return;
         cells.push({ key: `${c.title}/${i + 1}`, field: "label" });
         cells.push({ key: `${c.title}/${i + 1}.value`, field: "value" });
       });

@@ -10,6 +10,7 @@ import {
   type Profile,
   type ProfileColor,
 } from "@/lib/profiles";
+import { solvedCount } from "@/lib/progress";
 import SyncStatus from "./SyncStatus";
 
 const COLOR_STYLE: Record<ProfileColor, string> = {
@@ -39,10 +40,13 @@ export default function ProfileGate() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const first = profiles.length === 0;
+  // 同じ名前が2人以上いるときは、選ぶ画面でも解いた数を出して見分けられるように
+  const duplicated = new Set(profiles.map((p) => p.name).filter((n, i, all) => all.indexOf(n) !== i));
 
   const add = () => {
     const n = name.trim();
     if (!n) return;
+    if (profiles.some((p) => p.name === n.slice(0, MAX_NAME)) && !window.confirm(`「${n}」はもういます。同じ名前でもう1人追加しますか？`)) return;
     const p = addProfile(n.slice(0, MAX_NAME));
     setName("");
     if (first) selectProfile(p.id);
@@ -69,10 +73,11 @@ export default function ProfileGate() {
                     onBlur={(e) => e.target.value.trim() && renameProfile(p.id, e.target.value.trim())}
                     className="min-h-12 min-w-0 flex-1 rounded-xl border border-line bg-surface px-3 text-lg"
                   />
+                  <span className="shrink-0 text-xs text-muted tabular-nums">解いた {solvedCount(p.id)}問</span>
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm(`「${p.name}」と、その学習記録・お気に入りを消します。よろしいですか？`)) {
+                      if (window.confirm(`「${p.name}」（解いた ${solvedCount(p.id)}問）と、その学習記録・お気に入りを消します。よろしいですか？`)) {
                         removeProfile(p.id);
                       }
                     }}
@@ -88,7 +93,12 @@ export default function ProfileGate() {
                   className="flex min-h-20 w-full items-center gap-4 rounded-2xl border-2 border-line bg-surface px-5 text-left text-2xl font-bold transition-colors hover:border-accent"
                 >
                   <ProfileBadge profile={p} size="lg" />
-                  {p.name}
+                  <span>
+                    {p.name}
+                    {duplicated.has(p.name) && (
+                      <span className="block text-sm font-semibold text-muted">解いた {solvedCount(p.id)}問</span>
+                    )}
+                  </span>
                 </button>
               )}
             </li>

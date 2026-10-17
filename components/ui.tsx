@@ -118,9 +118,11 @@ export function SmallChip({
  * 画面の下に固定する帯（「答えを見る」「〇△×」「次へ」など）。
  * 地図や長い解説があっても、スクロールせずに押せるように
  */
-export function BottomBar({ children }: { children: ReactNode }) {
+export function BottomBar({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:px-6">
+    <div
+      className={`sticky bottom-0 z-20 -mx-4 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:px-6 ${className}`}
+    >
       {children}
     </div>
   );

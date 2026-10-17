@@ -126,7 +126,8 @@ export function createProfileStore<T>(name: string, empty: T, kind: DocKind) {
     );
   };
 
-  return { get: () => current().get(), set: (v: T) => current().set(v), use };
+  // getFor … 選んでいない人の記録を読む（「だれがやる？」の画面で、解いた数を出すため）
+  return { get: () => current().get(), getFor: (id: string) => storeFor(id).get(), set: (v: T) => current().set(v), use };
 }
 
 const subscribeNothing = () => () => {};

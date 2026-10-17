@@ -96,135 +96,124 @@ export default function MapSetQuiz({ run, onFinish }: { run: MapRun; onFinish: (
   });
 
   return (
-    <div className="space-y-4">
-      {/* 進捗 */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => onFinish(results)}
-          className="min-h-11 rounded-xl px-2 text-sm font-semibold text-muted hover:text-ink"
-        >
-          ✕ 終了
-        </button>
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(index / targets.length) * 100}%` }} />
-        </div>
-        <span className="text-sm font-semibold tabular-nums text-muted">
-          {index + 1} / {targets.length}
-        </span>
-      </div>
-
-      {/*
-        たて向き：問題 → 地図 → 選択肢・解説 の順に1列
-        iPad の横向き（lg 以上の横長）：左に地図、右に問題・選択肢・解説の2列（縦にスクロールしなくてよいように）
-      */}
-      <article className="flex flex-col gap-4 rounded-3xl border border-line bg-surface p-4 shadow-sm sm:p-6 lg:landscape:grid lg:landscape:grid-cols-[minmax(0,1fr)_20rem] lg:landscape:items-start lg:landscape:gap-5 lg:landscape:[--map-max-h:calc(100dvh-17rem)]">
-        <div className="contents lg:landscape:flex lg:landscape:flex-col lg:landscape:gap-4">
-          <div className="order-1 flex flex-wrap gap-2">
-            <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted">白地図・{set.title}{label && `（${label}）`}</span>
-            <StatusBadge record={progress[recordKey(target.id, mode)]} />
-          </div>
-
+    <div className="space-y-3">
+      {/* 進捗と問題。地図を大きくとるため、1つにまとめる */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onFinish(results)}
+            className="min-h-11 shrink-0 rounded-xl px-2 text-sm font-semibold text-muted hover:text-ink"
+          >
+            ✕ 終了
+          </button>
           {mode !== "name" ? (
-            <p className="order-1 text-lg leading-relaxed font-semibold sm:text-xl">
+            <p className="min-w-0 flex-1 text-lg leading-snug font-semibold sm:text-xl">
               <span className="text-accent">{target.name}</span>
               {target.reading && <span className="ml-1 text-sm font-normal text-muted">（{target.reading}）</span>}
               {mode === "pick" ? "はどれ？" : "はどこ？"}
             </p>
           ) : (
-            <p className="order-1 text-lg leading-relaxed font-semibold sm:text-xl">
+            <p className="min-w-0 flex-1 text-lg leading-snug font-semibold sm:text-xl">
               光っている<span className="text-accent">{target.kind}</span>の名前は？
             </p>
           )}
+          <span className="shrink-0 text-sm font-semibold tabular-nums text-muted">
+            {index + 1} / {targets.length}
+          </span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(index / targets.length) * 100}%` }} />
+        </div>
+      </div>
 
-          {mode === "pick" && !revealed && <p className="order-3 text-center text-sm text-muted">地図の印をタップしよう。</p>}
-          {mode === "locate" && !revealed && (
-            <p className="order-3 text-center text-sm text-muted">
-              地図をタップしてピンを立てよう。ピンをつかむと動かせるよ。{target.area ? `${target.kind}は、その中に立てればOK。` : target.coords.length > 1 && "線のどこかに立てればOK。"}
-            </p>
-          )}
+      {/*
+        たて向き：地図 → 解説 の順に1列。地図の高さは、画面から上の問題と下の帯を引いた分まで
+        iPad の横向き（lg 以上の横長）：左に地図（画面の高さいっぱい）、右に答えるボタンと解説の2列
+      */}
+      <div className="flex flex-col gap-3 [--map-max-h:calc(100dvh-14.5rem)] lg:landscape:grid lg:landscape:[--map-max-h:calc(100dvh-6rem)] lg:landscape:grid-cols-[minmax(0,1fr)_20rem] lg:landscape:items-start lg:landscape:gap-4">
+        {mode === "locate" ? (
+          <LocateMap
+            extent={set.extent}
+            marks={marks.filter((m) => m.tone === "done")}
+            pin={pin}
+            onPin={setPin}
+            answer={located ? { place: target, tol: locateTolerance(set.extent, target), verdict: located.verdict } : undefined}
+          />
+        ) : (
+          <MarksMap extent={set.extent} marks={marks} onPick={mode === "pick" && !revealed ? pick : undefined} />
+        )}
 
-          {options && (
-            <div className="order-3 grid gap-2 sm:grid-cols-2 lg:landscape:grid-cols-1">
-              {options.map((o, i) => {
-                const state = !revealed
-                  ? "border-line hover:border-accent/60"
-                  : o === target.name
-                    ? "border-ok bg-ok/10 text-ok"
-                    : o === picked
-                      ? "border-ng bg-ng/10 text-ng"
-                      : "border-line opacity-50";
-                return (
-                  <button
-                    key={o}
-                    type="button"
-                    disabled={revealed}
-                    onClick={() => pick(o)}
-                    className={`flex min-h-14 items-center gap-3 rounded-2xl border-2 bg-surface px-4 py-3 text-left font-semibold transition-colors ${state}`}
-                  >
-                    <span className="text-sm text-muted tabular-nums">{i + 1}</span>
-                    <span>{o}</span>
-                  </button>
-                );
-              })}
+        {/* 右の列（横向き）。たて向きでは地図の下にそのまま並ぶ */}
+        <div className="contents lg:landscape:flex lg:landscape:flex-col lg:landscape:gap-3">
+          <article className="space-y-3 rounded-3xl border border-line bg-surface p-4 shadow-sm">
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted">白地図・{set.title}{label && `（${label}）`}</span>
+              <StatusBadge record={progress[recordKey(target.id, mode)]} />
             </div>
-          )}
-
-          {revealed && (
-            <div className="order-3">
+            {revealed ? (
               <PlaceExplanation
                 place={target}
                 verdict={verdict}
                 note={
-                  located &&
-                  (located.other
-                    ? `きみのピンは「${located.other.name}」のあたり`
-                    : located.km < 5
-                      ? "ほぼぴったり"
-                      : `きみのピンは約${Math.round(located.km)}kmはなれていた`)
+                  located
+                    ? located.other
+                      ? `きみのピンは「${located.other.name}」のあたり`
+                      : located.km < 5
+                        ? "ほぼぴったり"
+                        : `きみのピンは約${Math.round(located.km)}kmはなれていた`
+                    : options && !correct && picked
+                      ? `えらんだのは「${picked}」`
+                      : null
                 }
               />
-            </div>
-          )}
-        </div>
-
-        <div className="order-2 lg:landscape:order-first">
-          {mode === "locate" ? (
-            <LocateMap
-              extent={set.extent}
-              marks={marks.filter((m) => m.tone === "done")}
-              pin={pin}
-              onPin={setPin}
-              answer={located ? { place: target, tol: locateTolerance(set.extent, target), verdict: located.verdict } : undefined}
-            />
-          ) : (
-            <MarksMap extent={set.extent} marks={marks} onPick={mode === "pick" && !revealed ? pick : undefined} />
-          )}
-        </div>
-      </article>
-
-      {/* 答える操作は画面の下に固定（印をタップ・4択は、答える前は出さない） */}
-      {(revealed || !auto || mode === "locate") && (
-        <BottomBar>
-          {revealed ? (
-            <div className="space-y-2">
-              {/* 地図は大きいので、答えと判定を帯にも出す（解説までスクロールしなくてよいように） */}
-              {verdict && (
-                <p className="text-center text-sm font-bold">
-                  <span className={correct ? "text-ok" : located?.verdict === "close" ? "text-unsure" : "text-ng"}>{verdict}</span>　答え：{target.name}
+            ) : (
+              <p className="text-sm text-muted">答えると、ここに解説が出ます。</p>
+            )}
+          </article>
+          {/* 答える操作（4択の選択肢もふくむ）。たて向きは画面の下に固定、横向きは右の列の上 */}
+          <BottomBar className="lg:landscape:static lg:landscape:order-first lg:landscape:mx-0 lg:landscape:rounded-2xl lg:landscape:border lg:landscape:p-3 lg:landscape:backdrop-blur-none">
+            {revealed ? (
+              <div className="space-y-2">
+                {/* 地図は大きいので、答えと判定を帯にも出す（解説までスクロールしなくてよいように） */}
+                {verdict && (
+                  <p className="text-center text-sm font-bold">
+                    <span className={correct ? "text-ok" : located?.verdict === "close" ? "text-unsure" : "text-ng"}>{verdict}</span>　答え：{target.name}
+                  </p>
+                )}
+                <GradeButtons self={!auto} correct={correct} onGrade={grade} />
+              </div>
+            ) : options ? (
+              <div className="grid grid-cols-2 gap-2">
+                {options.map((o, i) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => pick(o)}
+                    className="flex min-h-12 items-center gap-3 rounded-2xl border-2 border-line bg-surface px-4 py-2 text-left font-semibold transition-colors hover:border-accent/60"
+                  >
+                    <span className="text-sm text-muted tabular-nums">{i + 1}</span>
+                    <span>{o}</span>
+                  </button>
+                ))}
+              </div>
+            ) : mode === "pick" ? (
+              <p className="py-2 text-center text-sm text-muted">地図の印をタップしよう。</p>
+            ) : mode === "locate" ? (
+              <div className="space-y-2">
+                <p className="text-center text-xs text-muted">
+                  地図をトンとたたいてピンを立てよう。ピンをつかむと動かせるよ。{target.area ? `${target.kind}は、その中に立てればOK。` : target.coords.length > 1 && "線のどこかに立てればOK。"}
                 </p>
-              )}
-              <GradeButtons self={!auto} correct={correct} onGrade={grade} />
-            </div>
-          ) : mode === "locate" ? (
-            <BarButton disabled={!pin} onClick={() => setRevealed(true)}>
-              けってい
-            </BarButton>
-          ) : (
-            <BarButton onClick={() => setRevealed(true)}>答えを見る</BarButton>
-          )}
-        </BottomBar>
-      )}
+                <BarButton disabled={!pin} onClick={() => setRevealed(true)}>
+                  けってい
+                </BarButton>
+              </div>
+            ) : (
+              <BarButton onClick={() => setRevealed(true)}>答えを見る</BarButton>
+            )}
+          </BottomBar>
+        </div>
+      </div>
     </div>
   );
 }

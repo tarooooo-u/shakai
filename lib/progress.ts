@@ -23,6 +23,11 @@ const store = createProfileStore<Progress>("progress:v2", {}, "entries");
 
 export const useProgress = store.use;
 
+/** その人が解いた問題の数（白地図ドリルの「地名＠答え方」はのぞく） */
+export function solvedCount(profileId: string) {
+  return Object.keys(store.getFor(profileId)).filter((k) => !k.includes("@")).length;
+}
+
 export function recordGrade(id: string, grade: Grade) {
   const current = store.get();
   const prev = current[id] ?? { ok: 0, unsure: 0, ng: 0, streak: 0 };

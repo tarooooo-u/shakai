@@ -4,7 +4,7 @@
 // 新しい年のデータが出たら、ITEMS の表IDを差し替えて再実行する
 // （表IDは `node scripts/estat.mjs search <品目>` で探す。作物統計調査は「令和〇年産」、畜産統計は「〇年２月１日現在」）。
 // 文章（note など）は SHEETS に書く。年を変えたら note・source の年も直す。
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { data } from "./estat.mjs";
@@ -198,12 +198,20 @@ async function card(title) {
 }
 
 for (const s of SHEETS) {
+  // 手で決めた hideTop（「大事なところだけ」でかくす行の数）は、作り直しても残す
+  const file = join(ROOT, "content", "sheets", `${s.id}.json`);
+  const hideTop = new Map(
+    existsSync(file) ? JSON.parse(readFileSync(file, "utf8")).cards.filter((c) => c.hideTop).map((c) => [c.title, c.hideTop]) : [],
+  );
   const cards = [];
   for (const t of s.items) {
     const c = await card(t);
     console.log(`${t}: ${c._raw}`);
     delete c._raw;
-    cards.push(c);
+    if (hideTop.has(t)) {
+      const { rows, ...rest } = c;
+      cards.push({ ...rest, hideTop: Math.min(hideTop.get(t), rows.length), rows });
+    } else cards.push(c);
   }
   const sheet = {
     id: s.id,
@@ -218,6 +226,6 @@ for (const s of SHEETS) {
     source: s.source,
     sourceNote: `npm run agri（scripts/update-agri.mjs）で e-Stat から作成。割合は「県の値 ÷ 全国の値」。表ID：${s.items.map((t) => ITEMS[t][0]).join("・")}`,
   };
-  writeFileSync(join(ROOT, "content", "sheets", `${s.id}.json`), JSON.stringify(sheet, null, 2) + "\n");
+  writeFileSync(file, JSON.stringify(sheet, null, 2) + "\n");
   console.log(`→ content/sheets/${s.id}.json\n`);
 }

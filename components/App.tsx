@@ -110,6 +110,8 @@ function Main({ profile }: { profile: Profile }) {
   };
   const openList = (title: string, ids: string[]) => show({ kind: "list", title, ids });
   const back = () => show(null);
+  // 演習中（問題・白地図ドリル）はメニューをしまう
+  const focus = overlay?.kind === "quiz" || overlay?.kind === "mapquiz";
 
   const content = (() => {
     if (overlay?.kind === "quiz") {
@@ -255,8 +257,8 @@ function Main({ profile }: { profile: Profile }) {
 
   return (
     <div className="flex flex-1">
-      {/* PC・iPad横向き：左に常に出す */}
-      <div className="sticky top-0 hidden h-dvh shrink-0 md:block">
+      {/* PC・iPad：左に常に出す（演習中はしまって、問題・地図を広く） */}
+      <div className={`sticky top-0 hidden h-dvh shrink-0 ${focus ? "" : "md:block"}`}>
         <Sidebar mode="rail" page={page} profile={profile} progress={progress} onNavigate={navigate} />
       </div>
 
@@ -269,7 +271,7 @@ function Main({ profile }: { profile: Profile }) {
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-bg/95 px-2 py-1.5 backdrop-blur md:hidden">
+        <div className={`sticky top-0 z-30 items-center gap-2 border-b border-line bg-bg/95 px-2 py-1.5 backdrop-blur md:hidden ${focus ? "hidden" : "flex"}`}>
           <button
             type="button"
             aria-label="メニューを開く"
@@ -293,7 +295,7 @@ function Main({ profile }: { profile: Profile }) {
         </div>
         {/* データシートは図が横に広いので、はばを広くとる。白地図ドリルは横向きのとき地図と問題を横に並べる */}
         <main
-          className={`mx-auto w-full px-4 py-5 sm:px-6 sm:py-8 ${
+          className={`mx-auto w-full px-4 sm:px-6 ${focus ? "py-3" : "py-5 sm:py-8"} ${
             overlay?.kind === "sheet" ? "max-w-5xl" : overlay?.kind === "mapquiz" ? "max-w-3xl lg:landscape:max-w-6xl" : "max-w-3xl"
           }`}
         >

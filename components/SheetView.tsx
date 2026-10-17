@@ -2,26 +2,60 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { createLocalStore } from "@/lib/localStore";
-import { BAR_LABEL_MIN, cellsOf, setNg, sheetKey, touchSheet, useSheetProgress, type Sheet, type TreeNode } from "@/lib/sheets";
+import {
+  BAR_LABEL_MIN,
+  MAIN_PERCENT,
+  TOP3_PERCENT,
+  cellsOf,
+  hasMinorRows,
+  isMainRow,
+  setNg,
+  sheetKey,
+  touchSheet,
+  useSheetProgress,
+  type Sheet,
+  type TreeNode,
+} from "@/lib/sheets";
 import { CategoryBadge, Chip } from "./ui";
 
 // シートごとに、前に選んだかくし方を覚えておく
 const modeStore = createLocalStore<Record<string, string>>("shakai-sheet-mode", {});
+// シートごとに「大事なところだけ」（main）か「ぜんぶ」（all）か。はじめは main
+const scopeStore = createLocalStore<Record<string, "main" | "all">>("shakai-sheet-scope", {});
 
 type Ctx = {
   hide: string[];
+  /** 表の大事でない行はかくさない */
+  onlyMain: boolean;
   revealed: Set<string>;
   ng: Set<string>;
   tap: (key: string) => void;
 };
-const SheetCtx = createContext<Ctx>({ hide: [], revealed: new Set(), ng: new Set(), tap: () => {} });
+const SheetCtx = createContext<Ctx>({ hide: [], onlyMain: false, revealed: new Set(), ng: new Set(), tap: () => {} });
 
 /**
  * かくせる文字。かくすモードのときは赤い紙でおおう。
  * タップでめくる → もう一度タップで ×（もう一度で × を消す）
+ * fill … 赤い紙をまわりのはばいっぱいにする（文字の長さで答えが分からないように。表の列など）
+ * minor … 大事でない行。「大事なところだけ」のときはかくさず、うすく出す
  */
-function Hide({ k, field, children, className = "" }: { k: string; field: string; children: ReactNode; className?: string }) {
-  const { hide, revealed, ng, tap } = useContext(SheetCtx);
+function Hide({
+  k,
+  field,
+  children,
+  className = "",
+  fill = false,
+  minor = false,
+}: {
+  k: string;
+  field: string;
+  children: ReactNode;
+  className?: string;
+  fill?: boolean;
+  minor?: boolean;
+}) {
+  const { hide, onlyMain, revealed, ng, tap } = useContext(SheetCtx);
+  if (minor && onlyMain && hide.includes(field)) return <span className={`${className} text-muted opacity-70`}>{children}</span>;
   if (!hide.includes(field)) return <span className={className}>{children}</span>;
   const open = revealed.has(k);
   const isNg = ng.has(k);
@@ -30,12 +64,12 @@ function Hide({ k, field, children, className = "" }: { k: string; field: string
       type="button"
       onClick={() => tap(k)}
       aria-label={open ? `${typeof children === "string" ? children : ""}${isNg ? "（×）" : ""}` : "かくれている所（タップでめくる）"}
-      className={`relative inline-block rounded-md px-1 text-left align-middle transition-colors ${className} ${
+      className={`relative rounded-md px-1 text-left align-middle transition-colors ${fill ? "block w-full" : "inline-block"} ${className} ${
         open
           ? isNg
             ? "!bg-ng/15 !text-ng ring-2 ring-ng"
             : "ring-1 ring-accent/30"
-          : "min-w-[3.5em] !border-ng !bg-ng/85 !text-transparent hover:!bg-ng"
+          : "min-w-[5em] !border-ng !bg-ng/85 !text-transparent hover:!bg-ng"
       }`}
     >
       {children}
@@ -47,15 +81,22 @@ function Hide({ k, field, children, className = "" }: { k: string; field: string
 export default function SheetView({ sheet, onBack }: { sheet: Sheet; onBack: () => void }) {
   const modes = modeStore.use();
   const mode = sheet.modes.find((m) => m.id === modes[sheet.id]) ?? sheet.modes[0];
+  const scopes = scopeStore.use();
+  const canScope = hasMinorRows(sheet) && (mode.hide.includes("label") || mode.hide.includes("value"));
+  const onlyMain = canScope && (scopes[sheet.id] ?? "main") === "main";
   const progress = useSheetProgress();
   const ng = new Set(progress[sheetKey(sheet.id, mode.id)]?.ng ?? []);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
-  const keys = cellsOf(sheet)
+  const keys = cellsOf(sheet, onlyMain)
     .filter((c) => mode.hide.includes(c.field))
     .map((c) => c.key);
 
   useEffect(() => touchSheet(sheet.id, mode.id), [sheet.id, mode.id]);
 
+  const selectScope = (scope: "main" | "all") => {
+    scopeStore.set({ ...scopeStore.get(), [sheet.id]: scope });
+    setRevealed(new Set());
+  };
   const selectMode = (id: string) => {
     modeStore.set({ ...modeStore.get(), [sheet.id]: id });
     setRevealed(new Set());
@@ -84,6 +125,17 @@ export default function SheetView({ sheet, onBack }: { sheet: Sheet; onBack: () 
           </Chip>
         ))}
       </div>
+      {canScope && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-muted">かくす所</span>
+          <Chip selected={onlyMain} onClick={() => selectScope("main")}>
+            大事なところだけ
+          </Chip>
+          <Chip selected={!onlyMain} onClick={() => selectScope("all")}>
+            ぜんぶ
+          </Chip>
+        </div>
+      )}
 
       <div className="sticky top-14 z-20 -mx-1 flex flex-wrap items-center gap-2 rounded-xl bg-bg/95 px-1 py-1.5 backdrop-blur md:top-0">
         <ToolButton onClick={() => setRevealed(new Set(keys))}>ぜんぶめくる</ToolButton>
@@ -96,7 +148,7 @@ export default function SheetView({ sheet, onBack }: { sheet: Sheet; onBack: () 
         </span>
       </div>
 
-      <SheetCtx.Provider value={{ hide: mode.hide, revealed, ng, tap }}>
+      <SheetCtx.Provider value={{ hide: mode.hide, onlyMain, revealed, ng, tap }}>
         <div className="@container rounded-2xl border border-line bg-surface p-3 sm:p-4">
           {sheet.kind === "tree" && <Tree node={sheet.root} />}
           {sheet.kind === "cards" && <Cards sheet={sheet} />}
@@ -106,6 +158,7 @@ export default function SheetView({ sheet, onBack }: { sheet: Sheet; onBack: () 
 
       <p className="text-xs text-muted">
         赤い所をタップするとめくれます。めくったあと、もう一度タップすると × がつきます（「×だけかくす」で復習）。
+        {canScope && `「大事なところだけ」は、1位・${MAIN_PERCENT}%以上・3位までで${TOP3_PERCENT}%以上の行をかくし、ほかはうすく見せます。`}
       </p>
       <p className="text-[11px] leading-relaxed text-muted">出典：{sheet.source}</p>
     </div>
@@ -217,9 +270,11 @@ function Cards({ sheet }: { sheet: Extract<Sheet, { kind: "cards" }> }) {
       {sheet.cards.map((c) => (
         <div key={c.title} className="overflow-hidden rounded-xl border border-line">
           <div className="flex flex-wrap items-center justify-between gap-x-2 bg-surface-2 px-3 py-1.5">
-            <Hide k={c.title} field="title" className="font-bold">
-              {c.title}
-            </Hide>
+            <div className="min-w-0 flex-1">
+              <Hide k={c.title} field="title" className="font-bold" fill>
+                {c.title}
+              </Hide>
+            </div>
             {c.sub && <span className="text-[11px] text-muted">{c.sub}</span>}
           </div>
           <table className="w-full text-sm">
@@ -235,12 +290,12 @@ function Cards({ sheet }: { sheet: Extract<Sheet, { kind: "cards" }> }) {
                 <tr key={i} className="border-t border-line">
                   <td className="w-10 whitespace-nowrap py-1.5 pr-2 pl-3 text-xs text-muted">{r.head ?? `${i + 1}位`}</td>
                   <td className="py-1.5">
-                    <Hide k={`${c.title}/${i + 1}`} field="label">
+                    <Hide k={`${c.title}/${i + 1}`} field="label" fill minor={!isMainRow(c, i)}>
                       {r.label}
                     </Hide>
                   </td>
                   <td className="min-w-16 whitespace-nowrap py-1.5 pr-3 pl-2 text-right tabular-nums text-muted">
-                    <Hide k={`${c.title}/${i + 1}.value`} field="value">
+                    <Hide k={`${c.title}/${i + 1}.value`} field="value" className="text-right" fill minor={!isMainRow(c, i)}>
                       {r.value}
                     </Hide>
                   </td>
@@ -276,7 +331,7 @@ function Bars({ sheet }: { sheet: Extract<Sheet, { kind: "bars" }> }) {
         {sheet.rows.map((r) => (
           <div key={r.label} className="flex items-center gap-2">
             <div className="w-[5.5em] shrink-0 text-right text-sm">
-              <Hide k={`row/${r.label}`} field="row">
+              <Hide k={`row/${r.label}`} field="row" fill>
                 {r.label}
               </Hide>
             </div>
