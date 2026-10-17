@@ -149,6 +149,7 @@ function Main({ profile }: { profile: Profile }) {
           graduated={session.ids.filter((id) => isGraduated(progress[id]) && !session.graduatedBefore.includes(id))}
           onRetry={(ids) => start(ids, session.style)}
           onHome={back}
+          onDashboard={() => navigate({ kind: "dashboard" })}
         />
       );
     }
@@ -175,6 +176,7 @@ function Main({ profile }: { profile: Profile }) {
           graduated={run.targets.filter((id) => isGraduated(progress[recordKey(id, run.mode)]) && !run.graduatedBefore.includes(id))}
           onRetry={(ids) => startMap(run.setId, run.group, run.mode, run.style, ids)}
           onHome={back}
+          onDashboard={() => navigate({ kind: "dashboard" })}
           describe={(id) => {
             const p = PLACE_BY_ID.get(id)!;
             return { question: `${p.kind}${p.reading ? `（${p.reading}）` : ""}`, answer: p.name, kanjiNote: p.kanjiNote };

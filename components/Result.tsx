@@ -14,6 +14,7 @@ export default function Result({
   graduated,
   onRetry,
   onHome,
+  onDashboard,
   describe = describeQuestion,
 }: {
   ids: string[];
@@ -22,6 +23,8 @@ export default function Result({
   graduated: string[];
   onRetry: (ids: string[]) => void;
   onHome: () => void;
+  /** ダッシュボードへ（終わったあと進み具合を見られるように） */
+  onDashboard: () => void;
   /** 「見直そう」に出す内容（白地図ドリルでは地名から作る） */
   describe?: (id: string) => Review;
 }) {
@@ -61,7 +64,7 @@ export default function Result({
         ))}
       </div>
 
-      <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         <button
           type="button"
           disabled={weak.length === 0}
@@ -76,6 +79,13 @@ export default function Result({
           className="min-h-14 rounded-2xl border border-line bg-surface px-5 text-base font-bold transition-colors hover:bg-surface-2"
         >
           もどる
+        </button>
+        <button
+          type="button"
+          onClick={onDashboard}
+          className="min-h-14 rounded-2xl border border-line bg-surface px-5 text-base font-bold transition-colors hover:bg-surface-2"
+        >
+          ダッシュボードを見る
         </button>
       </div>
 
