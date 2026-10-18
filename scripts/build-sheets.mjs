@@ -8,9 +8,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DIR = join(ROOT, "content", "sheets");
 const OUT = join(ROOT, "data", "sheets.generated.json");
 const UNITS = JSON.parse(readFileSync(join(ROOT, "content", "units.json"), "utf8"));
-const KINDS = ["tree", "cards", "bars"];
+const KINDS = ["tree", "cards", "bars", "lines"];
 // かくし方の hide に書ける種類（lib/sheets.ts の cellsOf と同じ）
-const FIELDS = { tree: ["name", "desc"], cards: ["title", "label", "value"], bars: ["series", "value", "row"] };
+const FIELDS = { tree: ["name", "desc"], cards: ["title", "label", "value"], bars: ["series", "value", "row"], lines: ["series"] };
 const TONES = ["amber", "green", "gray", "blue"];
 
 const errors = [];
@@ -84,6 +84,29 @@ for (const file of readdirSync(DIR).filter((f) => f.endsWith(".json")).sort()) {
       if (!(total > 0)) err(`「${r.label}」の合計が0です`);
       return { label: r.label, percents: r.values.map((v) => Math.round((v / total) * 1000) / 10) };
     });
+  } else if (s.kind === "lines") {
+    const years = s.years ?? [];
+    if (!years.length || years.some((y, i) => !Number.isInteger(y) || (i > 0 && y <= years[i - 1]))) err("years は小さい順の年（整数）で書く");
+    if (!s.series?.length) err("series がありません");
+    const names = new Set();
+    let max = 0;
+    for (const l of s.series ?? []) {
+      if (!l.name) err("series の線に name がありません");
+      if (names.has(l.name)) err(`線「${l.name}」が2つあります`);
+      names.add(l.name);
+      if (l.values?.length !== years.length) err(`「${l.name}」の values の数が years（${years.length}）とちがいます`);
+      for (const v of l.values ?? []) if (v !== null && typeof v !== "number") err(`「${l.name}」の values は数か null で書く`);
+      const at = years.indexOf(l.labelAt);
+      if (at < 0 || typeof l.values?.[at] !== "number") err(`「${l.name}」の labelAt は、値のある年にする`);
+      for (const v of l.values ?? []) if (v > max) max = v;
+    }
+    for (const m of s.marks ?? []) if (!m.label || !(m.year >= years[0] && m.year <= years.at(-1))) err(`marks「${m.label}」の year が years の中にありません`);
+    out.yUnit = s.yUnit ?? "";
+    // たて軸の上は、% なら100、ほかは最大値を切り上げる
+    out.yMax = s.yUnit === "%" ? 100 : Math.ceil(max / 10) * 10;
+    out.years = years;
+    out.series = s.series;
+    out.marks = s.marks ?? [];
   }
   sheets.push(out);
 }

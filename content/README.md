@@ -92,16 +92,18 @@
 - 1枚＝`sheets/*.json` 1ファイル。`npm run questions` がチェックして `data/sheets.generated.json` を作る
 - 共通の項目：`id`（英小文字・数字・`-`。**変えない**。学習記録のキー）・`title`・`category`（history / geography / civics）・`unit`（`units.json` の単元）・`kind`・`modes`・`note`（グラフの見方など。画面に出る）・`source`（出典。画面に出る）・`sourceNote`（作り方のメモ。画面に出ない）
 - `modes` はかくし方。`{ "id": "name", "label": "名前をかくす", "hide": ["name"] }` のように、かくす文字の種類を `hide` に書く
-- `kind` は3つ
+- `kind` は4つ
   - `tree`（組織図）：`root` から `children` でつなぐ。箱は `name`（名前）と `desc`（説明）。`label` だけの箱は「中央」「地方」などのまとまり（`tone`：amber / green / gray / blue で色）。まとまりの中の箱の子は下に出る。かくせる種類：`name` / `desc`。名前はシートの中で重ならないようにする（記録のキー）
   - `cards`（国ごとの順位表など）：`columns`（3つ）と `cards`（`title`・`sub`・`rows: [{label, value}]`）。かくせる種類：`title` / `label` / `value`。左には「1位」「2位」…が出る。同じ順位や「北海道」「長い川」など順位でない見出しにしたい行は `head` に書く（かくさない）
     - 画面の「かくす所：大事なところだけ」では、1位・10%以上・3位までで5%以上の行だけをかくし、ほかはうすく見せる（値が「36.5%」の形でない行はいつもかくす）。決まりと合わないカードは `hideTop`（上から何行かくすか）を書く。`npm run agri` で作り直しても `hideTop` は残る
   - `bars`（割合の帯グラフ）：`series`（項目名）と `rows`（`label` と `values`。割合はアプリが計算する）。4%より細い所は数字を書かない。かくせる種類：`series` / `value` / `row`
+  - `lines`（折れ線グラフ。普及率の移り変わりなど）：`years`（小さい順の年）・`yUnit`（`%` ならたて軸は0〜100）・`series`（`name`・`values`（`years` と同じ並び、調査がない年は `null`）・`labelAt`（線に A・B… の記号を置く年。線どうしが重ならない所を選ぶ））・`marks`（`{ year, label }`。たての点線で示すできごと。かくさない）。線には記号だけを書き、下の「A ＝ 名前」の名前をかくす（入試の「A〜Dはどれか」の形）。答えが並び順で分からないように、`series` はばらばらの順に書く。かくせる種類：`series`
 - タップでめくる → もう一度タップで ×（もう一度で × を消す）。× はかくし方ごとに保存し、「×だけかくす」で復習できる
 - 統計の数字は塾の資料から写さず、元の統計から取る
   - `imports-by-country.json`（主な貿易相手国からの輸入品）：`npm run trade` で e-Stat の貿易統計から作る（`scripts/update-trade.mjs`）。新しい年は表ID・年を差し替えて再実行
   - `agri-*.json`（農産物・家畜の多い県：果物・野菜3枚・工芸作物など・家畜の6枚）：`npm run agri` で e-Stat の作物統計・畜産統計から作る（`scripts/update-agri.mjs`）。新しい年は表IDを差し替え、note・source の年も直して再実行
   - `industry-belts.json`（工業地帯・工業地域の業種別出荷額）：`npm run industry` で e-Stat の経済構造実態調査（製造業事業所調査）から作る（`scripts/update-industry.mjs`）。工業地帯は都府県全体で数える。新しい年は表ID・年を差し替えて再実行
+  - `durables-diffusion.json`（電化製品・自動車の普及率）：内閣府「消費動向調査」の `0403fukyuritsu.xls`（1957〜2004年、全世帯）から写した値。2004年で調査方法が変わったので、この表はここまで
   - `electricity-mix.json`（発電量の割合）：資源エネルギー庁のExcel（自動では取れない）から手で書き写した値（億kWh）。新しい年度は総合エネルギー統計の時系列表「4.電源構成(発電量)」から足す
 
 ## Excelで編集するとき

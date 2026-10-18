@@ -153,6 +153,7 @@ export default function SheetView({ sheet, onBack }: { sheet: Sheet; onBack: () 
           {sheet.kind === "tree" && <Tree node={sheet.root} />}
           {sheet.kind === "cards" && <Cards sheet={sheet} />}
           {sheet.kind === "bars" && <Bars sheet={sheet} />}
+          {sheet.kind === "lines" && <Lines sheet={sheet} />}
         </div>
       </SheetCtx.Provider>
 
@@ -351,6 +352,109 @@ function Bars({ sheet }: { sheet: Extract<Sheet, { kind: "bars" }> }) {
                   </div>
                 ) : null,
               )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ───── 折れ線グラフ（普及率の移り変わりなど）─────
+// 線には A・B… の記号だけを書き、下の「A ＝ 〇〇」の名前をかくす（入試の「A〜Dはどれか」の形）
+
+const LINE_COLORS = ["#2b6cb0", "#c05621", "#2f855a", "#b83280", "#6b46c1", "#4a5568"];
+const LINE_DASH = ["", "8 4", "", "3 3", "8 3 2 3", ""];
+const LETTERS = "ABCDEFGH";
+
+const W = 640;
+const H = 360;
+const PAD = { left: 36, right: 14, top: 22, bottom: 30 };
+
+function Lines({ sheet }: { sheet: Extract<Sheet, { kind: "lines" }> }) {
+  const { years, yMax } = sheet;
+  const first = years[0];
+  const last = years[years.length - 1];
+  const x = (year: number) => PAD.left + ((year - first) / (last - first)) * (W - PAD.left - PAD.right);
+  const y = (v: number) => H - PAD.bottom - (v / yMax) * (H - PAD.top - PAD.bottom);
+  const yTicks = Array.from({ length: 6 }, (_, i) => (yMax / 5) * i);
+  const xTicks = years.filter((yr) => yr % 5 === 0);
+  // 調査がない年（null）では線を切る
+  const path = (values: (number | null)[]) =>
+    values
+      .map((v, i) => (v === null ? null : `${i > 0 && values[i - 1] !== null ? "L" : "M"}${x(years[i]).toFixed(1)},${y(v).toFixed(1)}`))
+      .filter(Boolean)
+      .join("");
+
+  // 広いとき（iPad の横など）は、名前の欄をグラフの右に並べる
+  return (
+    <div className="space-y-3 @3xl:grid @3xl:grid-cols-[minmax(0,1fr)_14rem] @3xl:items-center @3xl:gap-4 @3xl:space-y-0">
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[460px] w-full" style={{ maxHeight: "55vh" }} role="img" aria-label={sheet.title}>
+          {yTicks.map((v) => (
+            <g key={v}>
+              <line x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="currentColor" className="text-line" />
+              <text x={PAD.left - 5} y={y(v) + 4} textAnchor="end" fontSize="11" fill="currentColor" className="text-muted tabular-nums">
+                {v}
+              </text>
+            </g>
+          ))}
+          <text x={PAD.left - 5} y={PAD.top - 9} textAnchor="end" fontSize="10" fill="currentColor" className="text-muted">
+            （{sheet.yUnit}）
+          </text>
+          {xTicks.map((yr) => (
+            <text key={yr} x={x(yr)} y={H - PAD.bottom + 16} textAnchor="middle" fontSize="11" fill="currentColor" className="text-muted tabular-nums">
+              {yr % 10 === 0 ? yr : `’${String(yr).slice(2)}`}
+            </text>
+          ))}
+          <text x={W - PAD.right} y={H - 2} textAnchor="end" fontSize="10" fill="currentColor" className="text-muted">
+            （年）
+          </text>
+          {sheet.marks.map((m) => (
+            <g key={m.label}>
+              <line x1={x(m.year)} x2={x(m.year)} y1={PAD.top} y2={H - PAD.bottom} stroke="currentColor" strokeDasharray="2 3" className="text-muted" />
+              <text x={x(m.year) + 3} y={PAD.top - 6} fontSize="10" fill="currentColor" className="text-muted">
+                {m.year} {m.label}
+              </text>
+            </g>
+          ))}
+          {sheet.series.map((l, i) => (
+            <path
+              key={l.name}
+              d={path(l.values)}
+              fill="none"
+              stroke={LINE_COLORS[i % LINE_COLORS.length]}
+              strokeWidth="2.5"
+              strokeDasharray={LINE_DASH[i % LINE_DASH.length]}
+              strokeLinejoin="round"
+            />
+          ))}
+          {sheet.series.map((l, i) => {
+            const v = l.values[years.indexOf(l.labelAt)] ?? 0;
+            return (
+              <g key={l.name} transform={`translate(${x(l.labelAt)},${y(v)})`}>
+                <circle r="10" fill="white" stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth="2" />
+                <text y="4" textAnchor="middle" fontSize="12" fontWeight="bold" fill={LINE_COLORS[i % LINE_COLORS.length]}>
+                  {LETTERS[i]}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="grid gap-2 @md:grid-cols-2 @3xl:grid-cols-1">
+        {sheet.series.map((l, i) => (
+          <div key={l.name} className="flex items-center gap-2 rounded-xl border border-line px-3 py-1.5">
+            <span className="w-4 shrink-0 text-center font-bold" style={{ color: LINE_COLORS[i % LINE_COLORS.length] }}>
+              {LETTERS[i]}
+            </span>
+            <svg aria-hidden="true" width="28" height="8" className="shrink-0">
+              <line x1="0" x2="28" y1="4" y2="4" stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth="2.5" strokeDasharray={LINE_DASH[i % LINE_DASH.length]} />
+            </svg>
+            <div className="min-w-0 flex-1">
+              <Hide k={`series/${l.name}`} field="series" className="font-semibold" fill>
+                {l.name}
+              </Hide>
             </div>
           </div>
         ))}

@@ -46,6 +46,17 @@ export type Sheet = SheetBase &
         /** percents は build で計算した割合（％、小数1けた） */
         rows: { label: string; percents: number[] }[];
       }
+    | {
+        kind: "lines";
+        /** たて軸の単位（「%」など）。yMax はたて軸の上の値 */
+        yUnit: string;
+        yMax: number;
+        years: number[];
+        /** values は years と同じ並び（調査がない年は null）。labelAt は線に記号（A・B…）を置く年 */
+        series: { name: string; labelAt: number; values: (number | null)[] }[];
+        /** たての点線で示すできごと（かくさない） */
+        marks: { year: number; label: string }[];
+      }
   );
 
 /** かくせる文字1つ。key はシートの中で重ならない */
@@ -96,6 +107,8 @@ export function cellsOf(sheet: Sheet, onlyMain = false): Cell[] {
         cells.push({ key: `${c.title}/${i + 1}.value`, field: "value" });
       });
     }
+  } else if (sheet.kind === "lines") {
+    sheet.series.forEach((s) => cells.push({ key: `series/${s.name}`, field: "series" }));
   } else {
     sheet.series.forEach((s) => cells.push({ key: `series/${s}`, field: "series" }));
     for (const r of sheet.rows) {

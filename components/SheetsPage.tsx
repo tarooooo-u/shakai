@@ -5,7 +5,7 @@ import { ngCount, sheetKey, useSheetProgress, type Sheet } from "@/lib/sheets";
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/types";
 import { Section } from "./ui";
 
-const KIND_LABEL: Record<Sheet["kind"], string> = { tree: "組織図", cards: "表", bars: "グラフ" };
+const KIND_LABEL: Record<Sheet["kind"], string> = { tree: "組織図", cards: "表", bars: "グラフ", lines: "折れ線" };
 
 /** データ：図表・組織図のシートを選ぶ画面 */
 export default function SheetsPage({ onOpen }: { onOpen: (id: string) => void }) {
