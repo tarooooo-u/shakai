@@ -144,7 +144,8 @@ export default function WritingPad({
   };
 
   return (
-    <div className="space-y-2">
+    // 書いている指・ペンがボタンにかかっても、「1画もどす」などの文字が選択されないように
+    <div className="space-y-2 select-none [-webkit-touch-callout:none]">
       <div
         className={`map-touch relative overflow-hidden rounded-2xl border-2 bg-surface ${readOnly ? "border-line" : "border-accent/50"}`}
         style={{ aspectRatio: `${PAD_COLS} / ${PAD_ROWS}` }}
