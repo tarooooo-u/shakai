@@ -51,7 +51,7 @@ export default function MapTap({
 
   return (
     <>
-      <div className="relative mx-auto" style={mapBoxStyle(P)}>
+      <div className="map-touch relative mx-auto" style={mapBoxStyle(P)} onContextMenu={(e) => e.preventDefault()}>
         <svg
           ref={svg}
           viewBox={`0 0 ${W} ${H}`}

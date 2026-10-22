@@ -57,7 +57,7 @@ export default function LocateMap({
 
   return (
     <>
-      <div className="relative mx-auto" style={mapBoxStyle(P)}>
+      <div className="map-touch relative mx-auto" style={mapBoxStyle(P)} onContextMenu={(e) => e.preventDefault()}>
         <svg
           ref={svg}
           viewBox={`0 0 ${P.W} ${P.H}`}

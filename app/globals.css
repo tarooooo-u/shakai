@@ -71,3 +71,11 @@ body {
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
 }
+
+/* 地図を指で長押ししても、青い選択や長押しメニューを出さない（中のピン・印もふくめて） */
+.map-touch,
+.map-touch * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

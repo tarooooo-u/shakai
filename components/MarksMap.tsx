@@ -92,7 +92,8 @@ export default function MarksMap({
         aria-label={onPick ? "白地図。答えの印をタップする" : "白地図"}
         style={mapBoxStyle(P)}
         // 指でスワイプしたらスクロールする（pointercancel が来て、印はえらばない）
-        className={`mx-auto block touch-pan-y rounded-2xl border border-line select-none ${onPick ? "cursor-pointer" : ""}`}
+        className={`map-touch mx-auto block touch-pan-y rounded-2xl border border-line ${onPick ? "cursor-pointer" : ""}`}
+        onContextMenu={(e) => e.preventDefault()}
         onPointerDown={(e) => {
           if (!onPick) return;
           dragging.current = true;
