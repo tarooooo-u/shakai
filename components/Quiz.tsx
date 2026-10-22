@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { QUESTION_BY_ID } from "@/data";
+import { KANJI_BY_ID, QUESTION_BY_ID } from "@/data";
 import { toggleFavorite, useFavorites } from "@/lib/favorites";
 import { judgeMap, type LatLng } from "@/lib/mapTask";
 import { recordGrade, useProgress } from "@/lib/progress";
@@ -9,6 +9,8 @@ import { asOfLabel, type Grade, type Question } from "@/lib/types";
 import type { Session } from "./App";
 import MapTap, { mapFeedback } from "./MapTap";
 import RainTempChart from "./RainTempChart";
+import { KanjiWordNotes } from "./KanjiQuiz";
+import WritingPad, { ModelAnswer, type Stroke } from "./WritingPad";
 import { BarButton, BottomBar, CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META, GradeButtons, StatusBadge } from "./ui";
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
@@ -31,6 +33,8 @@ export default function Quiz({
   // 地図問題で立てたピン
   const [pin, setPin] = useState<LatLng | null>(null);
   const [results, setResults] = useState<Record<string, Grade>>({});
+  // 書いて答えるときの手書きの線
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
   const favorites = useFavorites();
   const progress = useProgress();
 
@@ -41,6 +45,8 @@ export default function Quiz({
   // 4択と地図問題は自動で採点する（カードは自己採点）
   const auto = options !== null || mapTask !== undefined;
   const correct = mapTask ? mapVerdict === "ok" : picked === q.answer;
+  // 書いて答える（4択・地図の問題はそのまま）
+  const writing = session.style === "write" && !auto;
 
   const grade = useCallback(
     (g: Grade) => {
@@ -54,6 +60,7 @@ export default function Quiz({
         setRevealed(false);
         setPicked(null);
         setPin(null);
+        setStrokes([]);
       }
     },
     [q.id, results, index, ids.length, onFinish],
@@ -238,9 +245,12 @@ export default function Quiz({
           </div>
         )}
 
+        {writing && !revealed && <WritingPad strokes={strokes} onChange={setStrokes} />}
+
         {revealed && (
           <Explanation
             q={q}
+            strokes={writing ? strokes : undefined}
             verdict={
               mapVerdict ? MAP_VERDICT[mapVerdict] : options ? (correct ? "正解！" : "ざんねん") : undefined
             }
@@ -255,6 +265,8 @@ export default function Quiz({
           ? "キーボード：Enter で決定・次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
           : options
           ? "キーボード：1〜4 で選ぶ ／ Enter で次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
+          : writing
+          ? "答えを書いてから Space で答え ／ 1・2・3 で 〇・△・× ／ F でお気に入り ／ Esc で終了"
           : "キーボード：Space で答え ／ 1・2・3 で 〇・△・× ／ F でお気に入り ／ Esc で終了"}
       </p>
 
@@ -287,7 +299,8 @@ export default function Quiz({
 const MAP_VERDICT = { ok: "正解！", close: "おしい！", ng: "ざんねん" };
 const VERDICT_TEXT = { ok: "text-ok", close: "text-unsure", ng: "text-ng" };
 
-function Explanation({ q, verdict, note }: { q: Question; verdict?: string; note?: string }) {
+function Explanation({ q, verdict, note, strokes }: { q: Question; verdict?: string; note?: string; strokes?: Stroke[] }) {
+  const words = (q.kanjiWords ?? []).map((id) => KANJI_BY_ID.get(id)!).filter(Boolean);
   return (
     <div className="space-y-4 border-t border-line pt-5">
       <div>
@@ -298,12 +311,20 @@ function Explanation({ q, verdict, note }: { q: Question; verdict?: string; note
         )}
         {note && <div className="mt-1 text-sm font-semibold text-muted">{note}</div>}
       </div>
+      {strokes && (
+        <div className="space-y-2">
+          <div className="text-xs font-bold tracking-wider text-muted">きみの字とお手本を見くらべよう</div>
+          <WritingPad strokes={strokes} readOnly />
+          <ModelAnswer text={q.answer} mark={words.map((w) => w.chars).join("")} />
+        </div>
+      )}
       {q.kanjiNote && (
         <div className="rounded-xl bg-note px-4 py-3 text-sm text-note-ink">
           <span className="font-bold">漢字・読み注意　</span>
           {q.kanjiNote}
         </div>
       )}
+      <KanjiWordNotes words={words.filter((w) => !q.kanjiNote?.includes(w.note))} />
       <div>
         <div className="text-xs font-bold tracking-wider text-muted">解説</div>
         <p className="mt-1 text-[15px] leading-relaxed">{q.explanation}</p>

@@ -2,8 +2,8 @@ import { isActive, needsReview, type Progress } from "./progress";
 import { CATEGORIES, DIFFICULTIES, inCategory, isExpired, type Category, type Difficulty, type Question } from "./types";
 
 export type Mode = "active" | "unseen" | "review" | "ng" | "all";
-/** card = 答えを見て自己採点 / choice = 4択 */
-export type Style = "card" | "choice";
+/** card = 答えを見て自己採点 / choice = 4択 / write = 答えを手で書いてから、お手本と見くらべて自己採点 */
+export type Style = "card" | "choice" | "write";
 
 export const MODE_LABEL: Record<Mode, string> = {
   active: "卒業していない問題",
@@ -25,6 +25,7 @@ export const MODE_SHORT: Record<Mode, string> = {
 export const STYLE_LABEL: Record<Style, string> = {
   card: "カード（自己採点）",
   choice: "4択",
+  write: "書いて答える",
 };
 
 export type Filter = {

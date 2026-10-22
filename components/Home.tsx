@@ -265,6 +265,9 @@ export default function Home({
             {filter.style === "choice" && (
               <span className="text-xs text-muted">選択肢のない問題はカードで出ます</span>
             )}
+            {filter.style === "write" && (
+              <span className="text-xs text-muted">答えを手で書いてから、お手本と見くらべて自己採点します</span>
+            )}
           </div>
         </Row>
 

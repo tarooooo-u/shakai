@@ -30,6 +30,8 @@ export type Question = {
   explanation: string;
   /** 書き間違えやすい漢字などの注意点 */
   kanjiNote?: string;
+  /** 答えに入っている漢字ドリルの語句の id（data/index.ts でつける） */
+  kanjiWords?: string[];
   /** 人物 / 漢字 / 統計 / 多答 / ひっかけ など */
   tags: string[];
   /** 地図・雨温図・人物写真など（public/ 以下のパスか URL） */

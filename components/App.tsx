@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUESTION_BY_ID, SHEETS } from "@/data";
+import { KANJI_BY_ID, KANJI_WORDS, MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUESTION_BY_ID, SHEETS } from "@/data";
+import { kanjiChoices, kanjiKey, kanjiTargets, type KanjiField, type KanjiMode, type KanjiRun } from "@/lib/kanji";
 import { useFavorites } from "@/lib/favorites";
 import { filterSet, placeChoices, recordKey, runTargets, type KindGroup, type MapMode, type MapRun } from "@/lib/mapSets";
 import { isGraduated, needsReview, removeLegacyData, useProgress } from "@/lib/progress";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
 import { loadLastFilter } from "@/lib/homeFilter";
-import { DEFAULT_FILTER, buildChoices, pickQuestions, type Filter, type Style } from "@/lib/session";
+import { DEFAULT_FILTER, buildChoices, pickQuestions, shuffle, type Filter, type Style } from "@/lib/session";
 import { startSync } from "@/lib/sync";
 import { CATEGORY_LABEL, UNITS, inCategory, unitIn, type Category, type Grade } from "@/lib/types";
 import Home from "./Home";
@@ -18,6 +19,8 @@ import Result from "./Result";
 import Sidebar, { THEMES, type Page } from "./Sidebar";
 import Credits from "./Credits";
 import Dashboard from "./Dashboard";
+import KanjiPage from "./KanjiPage";
+import KanjiQuiz from "./KanjiQuiz";
 import MapSetQuiz from "./MapSetQuiz";
 import MapSetsPage from "./MapSetsPage";
 import SheetView from "./SheetView";
@@ -41,6 +44,8 @@ type Overlay =
   | { kind: "list"; title: string; ids: string[] }
   | { kind: "mapquiz"; run: MapRun }
   | { kind: "mapresult"; run: MapRun; results: Record<string, Grade> }
+  | { kind: "kanjiquiz"; run: KanjiRun }
+  | { kind: "kanjiresult"; run: KanjiRun; results: Record<string, Grade> }
   | { kind: "sheet"; id: string };
 
 const ALL_UNITS = Object.values(UNITS).flat();
@@ -110,6 +115,16 @@ function Main({ profile }: { profile: Profile }) {
     setRunKey((k) => k + 1);
     show({ kind: "mapquiz", run: { setId, group, mode, style, targets, choices, graduatedBefore } });
   };
+  // 漢字ドリル。onlyIds があればその語句だけ（結果画面の「もう一度」）
+  const startKanji = (mode: KanjiMode, field: KanjiField | "all", count: number, onlyIds?: string[]) => {
+    const words = KANJI_WORDS.filter((w) => field === "all" || w.field === field);
+    const targets = onlyIds ? shuffle(onlyIds) : kanjiTargets(words, mode, progress, count);
+    if (targets.length === 0) return;
+    const choices = mode === "pick" ? Object.fromEntries(targets.map((id) => [id, kanjiChoices(KANJI_BY_ID.get(id)!)])) : {};
+    const graduatedBefore = targets.filter((id) => isGraduated(progress[kanjiKey(id, mode)]));
+    setRunKey((k) => k + 1);
+    show({ kind: "kanjiquiz", run: { mode, targets, choices, graduatedBefore } });
+  };
   // ダッシュボードで単元をタップ：その単元の卒業していない問題（全部卒業なら全部）を、ホームで前に選んだ難易度・問題数・解き方で
   const startUnit = (category: Category, unit: string) => {
     const last = loadLastFilter() ?? DEFAULT_FILTER;
@@ -122,8 +137,8 @@ function Main({ profile }: { profile: Profile }) {
   };
   const openList = (title: string, ids: string[]) => show({ kind: "list", title, ids });
   const back = () => show(null);
-  // 演習中（問題・白地図ドリル）はメニューをしまう
-  const focus = overlay?.kind === "quiz" || overlay?.kind === "mapquiz";
+  // 演習中（問題・白地図ドリル・漢字ドリル）はメニューをしまう
+  const focus = overlay?.kind === "quiz" || overlay?.kind === "mapquiz" || overlay?.kind === "kanjiquiz";
 
   const content = (() => {
     if (overlay?.kind === "quiz") {
@@ -180,6 +195,37 @@ function Main({ profile }: { profile: Profile }) {
           describe={(id) => {
             const p = PLACE_BY_ID.get(id)!;
             return { question: `${p.kind}${p.reading ? `（${p.reading}）` : ""}`, answer: p.name, kanjiNote: p.kanjiNote };
+          }}
+        />
+      );
+    }
+    if (overlay?.kind === "kanjiquiz") {
+      const { run } = overlay;
+      return (
+        <KanjiQuiz
+          key={runKey}
+          run={run}
+          onFinish={(results) => {
+            const answered = run.targets.filter((id) => results[id]);
+            if (answered.length === 0) return back();
+            show({ kind: "kanjiresult", run: { ...run, targets: answered }, results });
+          }}
+        />
+      );
+    }
+    if (overlay?.kind === "kanjiresult") {
+      const { run, results } = overlay;
+      return (
+        <Result
+          ids={run.targets}
+          results={results}
+          graduated={run.targets.filter((id) => isGraduated(progress[kanjiKey(id, run.mode)]) && !run.graduatedBefore.includes(id))}
+          onRetry={(ids) => startKanji(run.mode, "all", 0, ids)}
+          onHome={back}
+          onDashboard={() => navigate({ kind: "dashboard" })}
+          describe={(id) => {
+            const w = KANJI_BY_ID.get(id)!;
+            return { question: `${w.hint}（${w.reading}）`, answer: w.word, kanjiNote: w.note };
           }}
         />
       );
@@ -263,6 +309,8 @@ function Main({ profile }: { profile: Profile }) {
       }
       case "mapsets":
         return <MapSetsPage progress={progress} onStart={startMap} />;
+      case "kanji":
+        return <KanjiPage progress={progress} onStart={startKanji} />;
       case "sheets":
         return <SheetsPage onOpen={(id) => show({ kind: "sheet", id })} />;
       case "credits":

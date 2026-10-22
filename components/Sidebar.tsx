@@ -1,6 +1,6 @@
 "use client";
 
-import { MAP_SETS, QUESTIONS, SHEETS } from "@/data";
+import { KANJI_WORDS, MAP_SETS, QUESTIONS, SHEETS } from "@/data";
 import { useFavorites } from "@/lib/favorites";
 import { createLocalStore } from "@/lib/localStore";
 import { needsReview, type Progress } from "@/lib/progress";
@@ -18,6 +18,7 @@ export type Page =
   | { kind: "category"; category: Category }
   | { kind: "theme"; tag: string }
   | { kind: "mapsets" }
+  | { kind: "kanji" }
   | { kind: "sheets" }
   | { kind: "all" }
   | { kind: "credits" };
@@ -189,6 +190,9 @@ export default function Sidebar({
       {THEMES.map((t) => (
         <Item {...nav} key={t.tag} to={{ kind: "theme", tag: t.tag }} mark={t.mark} label={t.label} count={THEME_COUNT[t.tag]} />
       ))}
+
+      {KANJI_WORDS.length > 0 && <Heading collapsed={collapsed}>書く</Heading>}
+      {KANJI_WORDS.length > 0 && <Item {...nav} to={{ kind: "kanji" }} mark="書" label="漢字ドリル" count={KANJI_WORDS.length} />}
 
       {(MAP_SETS.length > 0 || SHEETS.length > 0) && <Heading collapsed={collapsed}>地図・データ</Heading>}
       {MAP_SETS.length > 0 && <Item {...nav} to={{ kind: "mapsets" }} mark="図" label="白地図ドリル" count={MAP_SETS.length} />}

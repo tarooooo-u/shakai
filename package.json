@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "questions": "node scripts/build-questions.mjs && node scripts/build-mapsets.mjs && node scripts/build-sheets.mjs",
+    "questions": "node scripts/build-questions.mjs && node scripts/build-mapsets.mjs && node scripts/build-sheets.mjs && node scripts/build-kanji.mjs",
     "predev": "npm run questions",
     "dev": "next dev",
     "prebuild": "npm run questions",
