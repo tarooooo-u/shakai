@@ -124,7 +124,9 @@ function guessRate(task) {
 const guessReport = [];
 
 const HEADER = ["id", "単元", "都道府県", "分類", "難易度", "学年", "問題", "答え", "別解", "誤答選択肢", "解説", "漢字注意", "タグ", "画像", "地図", "出典メモ", "確認"];
-const FILES = { history: "h", geography: "g", civics: "c" };
+const FILES = { history: "h", geography: "g", civics: "c", current: "j" };
+// 時事（current.csv）の単元＝時事のテーマ。ほかのCSVの問題も「時事テーマ」列を書くと時事のページに並ぶ
+const JIJI_THEMES = UNITS.current;
 const PREFECTURES = [
   "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県",
   "東京都", "神奈川県", "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", "静岡県", "愛知県", "三重県",
@@ -141,6 +143,7 @@ const errors = [];
 const warnings = [];
 const questions = [];
 const ids = new Map();
+const relatedChecks = [];
 
 for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
   const category = name.replace(/\.csv$/, "");
@@ -178,6 +181,21 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
     if (!(r.難易度 in DIFFICULTY)) err(`難易度は ${Object.keys(DIFFICULTY).join(" / ")} のどれか`);
     if (r.学年 && !["4", "5", "6"].includes(r.学年)) err("学年は 4 / 5 / 6 か空欄");
     for (const k of ["問題", "答え", "解説"]) if (!r[k]) err(`${k}が空です`);
+
+    // 時事：current.csv は単元がそのままテーマ。ほかのCSVは「時事テーマ」列（任意の列）
+    const isCurrent = category === "current";
+    const jiji = isCurrent ? r.単元 : r.時事テーマ;
+    if (!isCurrent && r.時事テーマ && !JIJI_THEMES.includes(r.時事テーマ))
+      err(`時事テーマ「${r.時事テーマ}」は content/units.json の current にありません（${JIJI_THEMES.join(" / ")}）`);
+    if (isCurrent && r.時事テーマ) err("current.csv では時事テーマ列は使わない（単元がテーマ）");
+    if (!isCurrent && !r.時事テーマ && (r.単元 === "時事" || list(r.タグ).includes("時事")))
+      warnings.push(`${where(line)} [${r.id}] 時事の問題です。「時事テーマ」列を書くと時事のページにも並びます`);
+    // 時点：いつの情報か（2026-10 / 2026-10-22）。対象入試：その年の入試が終わったらふだんの出題から外す
+    if (r.時点 && !/^\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?$/.test(r.時点)) err("時点は「2026-10」か「2026-10-22」の形");
+    if (isCurrent && !r.時点) err("時事の問題は時点（いつの情報か。例 2026-10）が必要です");
+    if (r.対象入試 && !/^20\d{2}$/.test(r.対象入試)) err("対象入試は年（例 2027）");
+    const related = list(r.関連 ?? "");
+    if (related.length) relatedChecks.push({ id: r.id, related, where: where(line) });
 
     const choices = list(r.誤答選択肢);
     if (choices.length > 0 && choices.length < 3) err("誤答選択肢は 3つ以上（| 区切り）か空欄");
@@ -270,10 +288,21 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       ...(mapTask && { mapTask }),
       ...(choiceOnly && { choiceOnly }),
       ...(r.出典メモ && { source: r.出典メモ }),
+      ...(jiji && { jiji }),
+      ...(r.時点 && { asOf: r.時点 }),
+      ...(r.対象入試 && { examYear: Number(r.対象入試) }),
+      ...(related.length && { related }),
       checked: r.確認 === "済",
     });
   }
 }
+
+// 関連：ほかの問題の id（| 区切り）。教科書の知識の問題とつなげる
+for (const { id, related, where } of relatedChecks)
+  for (const x of related) {
+    if (!ids.has(x)) errors.push(`${where} [${id}] 関連の id「${x}」がありません`);
+    else if (x === id) errors.push(`${where} [${id}] 関連に自分の id が入っています`);
+  }
 
 if (warnings.length) {
   console.warn(`
@@ -295,5 +324,5 @@ writeFileSync(IMAGES_OUT, JSON.stringify([...IMAGES.entries()].map(([name, i]) =
 const count = (c) => questions.filter((q) => q.category === c).length;
 if (guessReport.length) console.log(`地図問題 ${guessReport.length}問（勘で当たる確率）\n  ${guessReport.join("\n  ")}`);
 console.log(
-  `問題データ OK: ${questions.length}問（歴史 ${count("history")} / 地理 ${count("geography")} / 公民 ${count("civics")}）`,
+  `問題データ OK: ${questions.length}問（歴史 ${count("history")} / 地理 ${count("geography")} / 公民 ${count("civics")} / 時事 ${count("current")}）。時事のページには ${questions.filter((q) => q.jiji).length}問`,
 );

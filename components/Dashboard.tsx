@@ -69,9 +69,14 @@ export default function Dashboard({
     const total = emptyCount();
     for (const q of QUESTIONS) {
       const part = partOf(progress[q.id]);
-      const key = `${q.category}/${q.unit}`;
-      if (!byUnit.has(key)) byUnit.set(key, emptyCount());
-      for (const c of [byUnit.get(key)!, byCategory[q.category], total]) {
+      const unit = (key: string) => {
+        if (!byUnit.has(key)) byUnit.set(key, emptyCount());
+        return byUnit.get(key)!;
+      };
+      const counts = [unit(`${q.category}/${q.unit}`), byCategory[q.category], total];
+      // 時事テーマのある問題は、時事のほうにも数える（全体の数は1回だけ）
+      if (q.jiji && q.category !== "current") counts.push(unit(`current/${q.jiji}`), byCategory.current);
+      for (const c of counts) {
         c[part]++;
         c.total++;
       }
@@ -106,7 +111,7 @@ export default function Dashboard({
       </div>
 
       {/* 分野ごとの卒業率 */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {CATEGORIES.map((c) => (
           <Ring key={c} label={CATEGORY_LABEL[c]} count={byCategory[c]} onClick={() => tabStore.set(c)} active={tab === c} />
         ))}

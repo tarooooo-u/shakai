@@ -20,7 +20,7 @@ import {
   type Mode,
   type Style,
 } from "@/lib/session";
-import { CATEGORIES, CATEGORY_LABEL, DIFFICULTIES, DIFFICULTY_LABEL, UNITS, type Category } from "@/lib/types";
+import { CATEGORIES, CATEGORY_LABEL, DIFFICULTIES, DIFFICULTY_LABEL, UNITS, inCategory, type Category } from "@/lib/types";
 import { Chip, Section, SmallChip } from "./ui";
 
 const COUNTS = [7, 10, 20, 50, 0];
@@ -34,7 +34,8 @@ function countBy(key: (q: (typeof QUESTIONS)[number]) => string[]) {
   for (const q of QUESTIONS) for (const k of key(q)) m.set(k, (m.get(k) ?? 0) + 1);
   return m;
 }
-const UNIT_COUNT = countBy((q) => [q.unit]);
+// 時事テーマも単元として数える（時事の単元のボタン用）
+const UNIT_COUNT = countBy((q) => (q.jiji && q.jiji !== q.unit ? [q.unit, q.jiji] : [q.unit]));
 const KIND_COUNT = [...countBy((q) => (q.kind ? [q.kind] : []))];
 const TAG_COUNT = [...countBy((q) => q.tags)].sort((a, b) => b[1] - a[1]);
 
@@ -69,17 +70,23 @@ export default function Home({
     ) as Record<Category, { total: number; graduated: number; review: number }>;
     let seen = 0;
     let check = 0;
+    let review = 0;
+    let graduated = 0;
     for (const q of QUESTIONS) {
       const r = progress[q.id];
-      const s = byCategory[q.category];
-      s.total++;
       if (r) seen++;
-      if (isGraduated(r)) s.graduated++;
-      if (needsReview(r)) s.review++;
+      if (isGraduated(r)) graduated++;
+      if (needsReview(r)) review++;
       if (statusOf(r) === "check") check++;
+      // 時事テーマのある問題は、もとの分野と時事の両方で数える
+      for (const c of CATEGORIES) {
+        if (!inCategory(q, c)) continue;
+        const s = byCategory[c];
+        s.total++;
+        if (isGraduated(r)) s.graduated++;
+        if (needsReview(r)) s.review++;
+      }
     }
-    const review = CATEGORIES.reduce((n, c) => n + byCategory[c].review, 0);
-    const graduated = CATEGORIES.reduce((n, c) => n + byCategory[c].graduated, 0);
     return { byCategory, seen, review, graduated, check };
   }, [progress]);
 
@@ -167,7 +174,7 @@ export default function Home({
         <h2 className="text-base font-bold">条件を選んで演習</h2>
 
         <Row title="分野">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
             {CATEGORIES.map((c) => {
               const s = stats.byCategory[c];
               const selected = filter.categories.includes(c);

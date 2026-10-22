@@ -5,7 +5,7 @@ import { QUESTION_BY_ID } from "@/data";
 import { toggleFavorite, useFavorites } from "@/lib/favorites";
 import { judgeMap, type LatLng } from "@/lib/mapTask";
 import { recordGrade, useProgress } from "@/lib/progress";
-import type { Grade, Question } from "@/lib/types";
+import { asOfLabel, type Grade, type Question } from "@/lib/types";
 import type { Session } from "./App";
 import MapTap, { mapFeedback } from "./MapTap";
 import RainTempChart from "./RainTempChart";
@@ -132,6 +132,9 @@ export default function Quiz({
           <div className="flex flex-1 flex-wrap gap-2">
             <CategoryBadge category={q.category} sub={[q.unit, q.prefecture, q.kind].filter(Boolean).join("・")} />
             <DifficultyBadge difficulty={q.difficulty} />
+            {q.asOf && (
+              <span className="rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted">{asOfLabel(q.asOf)}</span>
+            )}
             <StatusBadge record={progress[q.id]} />
           </div>
           <FavoriteButton on={favorites.includes(q.id)} onClick={() => toggleFavorite(q.id)} />
@@ -306,6 +309,23 @@ function Explanation({ q, verdict, note }: { q: Question; verdict?: string; note
         <p className="mt-1 text-[15px] leading-relaxed">{q.explanation}</p>
         {q.source && !q.source.startsWith("要確認") && <p className="mt-2 text-xs text-muted">出典：{q.source}</p>}
       </div>
+      {q.related && (
+        <div>
+          <div className="text-xs font-bold tracking-wider text-muted">あわせて確認</div>
+          <ul className="mt-1 space-y-1.5">
+            {q.related.map((id) => {
+              const x = QUESTION_BY_ID.get(id);
+              if (!x) return null;
+              return (
+                <li key={id} className="rounded-xl bg-surface-2 px-3 py-2 text-sm leading-relaxed">
+                  {x.question}
+                  <span className="ml-1 font-bold text-accent">→ {x.answer}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

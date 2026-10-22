@@ -1,5 +1,5 @@
 import { isActive, needsReview, type Progress } from "./progress";
-import { CATEGORIES, DIFFICULTIES, type Category, type Difficulty, type Question } from "./types";
+import { CATEGORIES, DIFFICULTIES, inCategory, isExpired, type Category, type Difficulty, type Question } from "./types";
 
 export type Mode = "active" | "unseen" | "review" | "ng" | "all";
 /** card = 答えを見て自己採点 / choice = 4択 */
@@ -73,8 +73,9 @@ export function matchesMode(mode: Mode, q: Question, progress: Progress) {
 
 export function matches(filter: Filter, q: Question, progress: Progress) {
   return (
-    filter.categories.includes(q.category) &&
-    (filter.units.length === 0 || filter.units.includes(q.unit)) &&
+    filter.categories.some((c) => inCategory(q, c)) &&
+    (filter.units.length === 0 || filter.units.includes(q.unit) || (q.jiji !== undefined && filter.units.includes(q.jiji))) &&
+    !isExpired(q) &&
     (filter.kinds.length === 0 || (q.kind !== undefined && filter.kinds.includes(q.kind))) &&
     filter.difficulties.includes(q.difficulty) &&
     (filter.tags.length === 0 || filter.tags.some((t) => q.tags.includes(t))) &&

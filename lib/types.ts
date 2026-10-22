@@ -1,7 +1,7 @@
 import units from "@/content/units.json";
 import type { MapTask } from "./mapTask";
 
-export type Category = "history" | "geography" | "civics";
+export type Category = "history" | "geography" | "civics" | "current";
 
 export type Difficulty = "basic" | "standard" | "advanced" | "top";
 
@@ -47,6 +47,14 @@ export type Question = {
   climate?: { temp: number[]; tempYear: number; precip: number[]; precipYear: number };
   /** 統計の年・出典など */
   source?: string;
+  /** 時事のテーマ（content/units.json の current）。ある問題は時事のページにも並ぶ */
+  jiji?: string;
+  /** いつの情報か（2026-10 / 2026-10-22） */
+  asOf?: string;
+  /** この年の入試が終わったら、ふだんの出題から外す */
+  examYear?: number;
+  /** つながる問題の id（教科書の知識の問題など） */
+  related?: string[];
   /** 保護者が内容を確認済みか */
   checked: boolean;
 };
@@ -58,6 +66,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   history: "歴史",
   geography: "地理",
   civics: "公民",
+  current: "時事",
 };
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
@@ -70,3 +79,19 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
 export const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[];
 export const DIFFICULTIES = Object.keys(DIFFICULTY_LABEL) as Difficulty[];
 export const UNITS: Record<Category, string[]> = units;
+
+/** その分野の問題か。時事テーマのある問題は、もとの分野と時事の両方に入る */
+export const inCategory = (q: Question, c: Category) => q.category === c || (c === "current" && q.jiji !== undefined);
+
+/** その分野で見たときの単元（時事では時事テーマ） */
+export const unitIn = (q: Question, c: Category) => (c === "current" && q.jiji ? q.jiji : q.unit);
+
+/** 対象の入試（2月）が終わった時事の問題。ふだんの出題から外す */
+export const isExpired = (q: Question, now = Date.now()) =>
+  q.examYear !== undefined && now >= new Date(q.examYear, 2, 1).getTime();
+
+/** 「2026-10」→「2026年10月時点」 */
+export function asOfLabel(asOf: string) {
+  const [y, m, d] = asOf.split("-").map(Number);
+  return `${y}年${m}月${d ? `${d}日` : ""}時点`;
+}

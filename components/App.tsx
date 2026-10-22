@@ -9,7 +9,7 @@ import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/li
 import { loadLastFilter } from "@/lib/homeFilter";
 import { DEFAULT_FILTER, buildChoices, pickQuestions, type Filter, type Style } from "@/lib/session";
 import { startSync } from "@/lib/sync";
-import { CATEGORY_LABEL, UNITS, type Category, type Grade } from "@/lib/types";
+import { CATEGORY_LABEL, UNITS, inCategory, unitIn, type Category, type Grade } from "@/lib/types";
 import Home from "./Home";
 import ProfileGate, { ProfileBadge } from "./ProfileGate";
 import QuestionList from "./QuestionList";
@@ -238,8 +238,9 @@ function Main({ profile }: { profile: Profile }) {
             key={page.category}
             label="分野"
             title={CATEGORY_LABEL[page.category]}
-            questions={QUESTIONS.filter((q) => q.category === page.category)}
+            questions={QUESTIONS.filter((q) => inCategory(q, page.category))}
             unitOrder={UNITS[page.category]}
+            unitOf={(q) => unitIn(q, page.category)}
             progress={progress}
             onStart={start}
             onOpenList={openList}

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { isActive, isGraduated, needsReview, type Progress } from "@/lib/progress";
 import { STYLE_LABEL, shuffle, type Style } from "@/lib/session";
-import type { Question } from "@/lib/types";
+import { isExpired, type Question } from "@/lib/types";
 import { Chip, Section, SmallChip } from "./ui";
 
 const COUNTS = [7, 10, 20, 0];
@@ -14,6 +14,7 @@ export default function TopicPage({
   title,
   questions,
   unitOrder,
+  unitOf = (q) => q.unit,
   progress,
   onStart,
   onOpenList,
@@ -24,6 +25,8 @@ export default function TopicPage({
   questions: Question[];
   /** 単元の並び順（content/units.json の順） */
   unitOrder: string[];
+  /** 単元の見方（時事のページでは時事テーマ） */
+  unitOf?: (q: Question) => string;
   progress: Progress;
   onStart: (ids: string[], style: Style) => void;
   onOpenList: (title: string, ids: string[]) => void;
@@ -36,15 +39,16 @@ export default function TopicPage({
 
   const unitCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const q of questions) m.set(q.unit, (m.get(q.unit) ?? 0) + 1);
+    for (const q of questions) m.set(unitOf(q), (m.get(unitOf(q)) ?? 0) + 1);
     return [...m].sort((a, b) => unitOrder.indexOf(a[0]) - unitOrder.indexOf(b[0]));
-  }, [questions, unitOrder]);
+  }, [questions, unitOrder, unitOf]);
 
   const graduated = questions.filter((q) => isGraduated(progress[q.id])).length;
   const review = questions.filter((q) => needsReview(progress[q.id]));
   const active = questions.filter((q) => isActive(progress[q.id]));
-  const inUnits = units.length ? questions.filter((q) => units.includes(q.unit)) : questions;
-  const pool = includeGraduated ? inUnits : inUnits.filter((q) => isActive(progress[q.id]));
+  const inUnits = units.length ? questions.filter((q) => units.includes(unitOf(q))) : questions;
+  // 入試が終わった時事の問題は出さない
+  const pool = inUnits.filter((q) => !isExpired(q) && (includeGraduated || isActive(progress[q.id])));
   const willAsk = count ? Math.min(count, pool.length) : pool.length;
   const pick = (list: Question[], n: number) => shuffle(list.map((q) => q.id)).slice(0, n || undefined);
   const toggleUnit = (u: string) => setUnits(units.includes(u) ? units.filter((x) => x !== u) : [...units, u]);

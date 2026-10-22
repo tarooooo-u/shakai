@@ -5,7 +5,7 @@ import { useFavorites } from "@/lib/favorites";
 import { createLocalStore } from "@/lib/localStore";
 import { needsReview, type Progress } from "@/lib/progress";
 import { leaveProfile, type Profile } from "@/lib/profiles";
-import { CATEGORIES, CATEGORY_LABEL, type Category } from "@/lib/types";
+import { CATEGORIES, CATEGORY_LABEL, inCategory, type Category } from "@/lib/types";
 import { ProfileBadge } from "./ProfileGate";
 import SyncStatus from "./SyncStatus";
 
@@ -31,9 +31,9 @@ export const THEMES = [
   { tag: "写真", label: "写真・絵で答える", mark: "写" },
 ].filter((t) => QUESTIONS.some((q) => q.tags.includes(t.tag)));
 
-const CATEGORY_MARK: Record<Category, string> = { history: "歴", geography: "地", civics: "公" };
+const CATEGORY_MARK: Record<Category, string> = { history: "歴", geography: "地", civics: "公", current: "時" };
 const CATEGORY_COUNT = Object.fromEntries(
-  CATEGORIES.map((c) => [c, QUESTIONS.filter((q) => q.category === c).length]),
+  CATEGORIES.map((c) => [c, QUESTIONS.filter((q) => inCategory(q, c)).length]),
 ) as Record<Category, number>;
 const THEME_COUNT = Object.fromEntries(
   THEMES.map((t) => [t.tag, QUESTIONS.filter((q) => q.tags.includes(t.tag)).length]),

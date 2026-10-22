@@ -13,7 +13,7 @@
   - きょうだいで同じ端末を使うため、プロフィール（`lib/profiles.ts`）ごとに保存。開くたびに「だれがやる？」を選ぶ
   - 将来ログインを入れるときは「保護者アカウント（課金）の下に子どものプロフィール」の形にし、プロフィール id（UUID）の記録をそのまま取り込む
   - 〇が2回続いたら「卒業」してふだんの出題から外れる。14日・30日・60日後に「確認」で1回出し、△・×なら卒業取り消し
-- 問題データは `content/questions/{history,geography,civics}.csv`。書式は `content/README.md`、単元は `content/units.json`
+- 問題データは `content/questions/{history,geography,civics,current}.csv`（current＝時事。id は `j0001`〜）。書式は `content/README.md`、単元は `content/units.json`
   - ダッシュボードの単元の小見出し（地方別・しくみ別など）は `content/unit-groups.json`。単元を足したらここにも入れる（`npm run questions` が確認する）
   - `scripts/build-questions.mjs` が検証して `data/questions.generated.json`（git 管理外）を作る
 - データシート（表・グラフ・組織図の一部をかくし、タップでめくる赤シート式）は `content/sheets/*.json`。書式は `content/README.md`。統計は元の統計から取る（塾の資料の数字を写さない）。記録は「シートid@かくし方」ごとの × の一覧
@@ -36,6 +36,12 @@
 3. `npm run questions` でチェックを通す
 4. 処理したファイルを `content/inbox/done/` に移し、追加した問題の一覧（id・問題・答え）と要確認点を報告する
 5. CSV は UTF-8（BOM付き）・CRLF を維持する（Excel で開けるように）
+
+## 時事問題を足すとき
+
+- `content/questions/current.csv` に入れる。単元は時事のテーマ、`時点`（必須）・`対象入試`（例 2027）・`関連` を書く（`content/README.md` の「時事」）
+- 事実は報道・公式の発表で1つずつ確かめる（AIのまとめ・ブログの数字をそのまま使わない）。結果が出ていないこと（選挙・会合の予定など）は入れない
+- しくみ・理由の問題は公民などのCSVに入れ、`関連` でつなぐ。ほかのCSVの時事の問題には `時事テーマ` 列を書く
 
 ## スキャン教材（塾テキスト等）から取り込むとき
 
