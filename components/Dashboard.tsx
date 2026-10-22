@@ -5,6 +5,7 @@ import { MAP_SETS, QUESTIONS, SHEETS } from "@/data";
 import unitGroups from "@/content/unit-groups.json";
 import { streakDays, useDays } from "@/lib/activity";
 import { createLocalStore } from "@/lib/localStore";
+import DailyChart from "./DailyChart";
 import { MAP_MODE_LABEL, setProgress, type MapMode } from "@/lib/mapSets";
 import { isGraduated, needsReview, type Progress, type QuestionRecord } from "@/lib/progress";
 import { ngCount, sheetKey, useSheetProgress } from "@/lib/sheets";
@@ -109,6 +110,9 @@ export default function Dashboard({
         <Stat label="要復習" value={total.review} tone="text-ng" />
         <Stat label="れんぞく" value={streak} sub="日" tone="text-unsure" />
       </div>
+
+      {/* 日ごとの解いた数 */}
+      <DailyChart days={days} now={now} />
 
       {/* 分野ごとの卒業率 */}
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
