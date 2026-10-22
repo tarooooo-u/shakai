@@ -5,14 +5,15 @@ import { KANJI_BY_ID, KANJI_WORDS, MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUE
 import { kanjiChoices, kanjiKey, kanjiTargets, type KanjiField, type KanjiMode, type KanjiRun } from "@/lib/kanji";
 import { useFavorites } from "@/lib/favorites";
 import { filterSet, placeChoices, recordKey, runTargets, type KindGroup, type MapMode, type MapRun } from "@/lib/mapSets";
-import { isGraduated, needsReview, removeLegacyData, useProgress } from "@/lib/progress";
+import { isGraduated, needsReview, useProgress } from "@/lib/progress";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
 import { loadLastFilter } from "@/lib/homeFilter";
 import { DEFAULT_FILTER, buildChoices, pickQuestions, shuffle, type Filter, type Style } from "@/lib/session";
-import { startSync } from "@/lib/sync";
+import { useAppBoot, useRememberSubject } from "@/lib/subjects";
 import { CATEGORY_LABEL, UNITS, inCategory, unitIn, type Category, type Grade } from "@/lib/types";
 import Home from "./Home";
-import ProfileGate, { ProfileBadge } from "./ProfileGate";
+import { ProfileBadge } from "./ProfileGate";
+import SubjectSwitch, { useSubjectGuard } from "./SubjectSwitch";
 import QuestionList from "./QuestionList";
 import Quiz from "./Quiz";
 import Result from "./Result";
@@ -54,18 +55,21 @@ export default function App() {
   const hydrated = useHydrated();
   const profile = useCurrentProfile();
 
-  // プロフィールに分ける前の記録は使わない（リセット）
-  useEffect(removeLegacyData, []);
-  // 学習記録をサーバーと同期する
-  useEffect(startSync, []);
+  useAppBoot();
+  // 人が選ばれていなければ入口（/）で「だれがやる？」
+  useSubjectGuard("shakai", profile !== null, hydrated);
 
-  if (!hydrated) return null;
-  if (!profile) return <ProfileGate />;
+  if (!hydrated || !profile) return null;
   // 人が変わったら画面の状態もすべて最初から
-  return <Main key={profile.id} profile={profile} />;
+  return (
+    <div data-subject="shakai" className="flex flex-1">
+      <Main key={profile.id} profile={profile} />
+    </div>
+  );
 }
 
 function Main({ profile }: { profile: Profile }) {
+  useRememberSubject("shakai");
   const progress = useProgress();
   const favorites = useFavorites();
   const [page, setPage] = useState<Page>({ kind: "home" });
@@ -352,14 +356,12 @@ function Main({ profile }: { profile: Profile }) {
           >
             ☰
           </button>
-          <button type="button" onClick={() => navigate({ kind: "home" })} className="rounded-lg px-1 font-bold hover:text-accent">
-            社会ドリル
-          </button>
+          <SubjectSwitch subject="shakai" onHome={() => navigate({ kind: "home" })} />
           <button
             type="button"
             onClick={leaveProfile}
             aria-label={`${profile.name}（人を切りかえる）`}
-            className="ml-auto flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-bold hover:bg-surface-2"
+            className="flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-bold hover:bg-surface-2"
           >
             <ProfileBadge profile={profile} size="sm" />
             {profile.name}

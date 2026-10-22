@@ -4,6 +4,11 @@
 
 中学受験（最難関志望の小6）向け、社会の学習アプリ。将来は一般公開・マネタイズ予定（ログイン・Stripe）。
 
+- 社会（`/shakai`）と理科（`/rika`）は完全に別：画面・問題・学習記録・色を共有しない。共通なのはプロフィール・同期・卒業のしくみ（`lib/progress.ts` の statusOf など）だけ（`lib/subjects.ts`）
+  - 入口（`/`、`components/Entry.tsx`）で「だれがやる？」→ その人が最後に使った教科へそのまま入る（プロフィールごとに `subject:v1` に保存・同期）。メニューの「⇄ 教科」で教科を選ぶ画面へ
+  - 社会のコードは今まで通り `components/`・`lib/`・`content/`・`scripts/` の直下。理科は各フォルダの `rika/`（`components/rika/`・`lib/rika/`・`content/rika/`・`data/rika/`・`scripts/rika/`）。理科から社会の部品・データを読まない
+  - 理科の記録の名前には `rika-` をつける（`rika-progress:v1`）。社会の記録の名前（`progress:v2` など）は変えない
+  - 理科は生物（植物）115問だけで、解く画面（カード・4択）はまだない。問題の書式は `content/rika/README.md`
 - 画面は静的書き出し → Cloudflare Pages。サイト全体を Cloudflare Access（Zero Trust）で守り、許可したメールの人だけが開ける
 - 学習記録（`lib/progress.ts` など）は端末の localStorage に書き、`lib/sync.ts` がサーバー（Pages Functions `functions/api/sync.ts` ＋ D1）にも保存する
   - サーバーでは Access でログインしたメールの下に記録を置く。問題ごとに更新時刻の新しいほうを残す。サーバーから取ってきても端末の記録は消さない

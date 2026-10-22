@@ -7,6 +7,7 @@ import { needsReview, type Progress } from "@/lib/progress";
 import { leaveProfile, type Profile } from "@/lib/profiles";
 import { CATEGORIES, CATEGORY_LABEL, inCategory, type Category } from "@/lib/types";
 import { ProfileBadge } from "./ProfileGate";
+import SubjectSwitch from "./SubjectSwitch";
 import SyncStatus from "./SyncStatus";
 
 /** サイドバーから移動できる画面 */
@@ -139,15 +140,7 @@ export default function Sidebar({
         >
           {mode === "drawer" ? "✕" : collapsed ? "»" : "«"}
         </button>
-        {!collapsed && (
-          <button
-            type="button"
-            onClick={() => onNavigate({ kind: "home" })}
-            className="rounded-lg px-1 text-base font-bold hover:text-accent"
-          >
-            社会ドリル
-          </button>
-        )}
+        {!collapsed && <SubjectSwitch subject="shakai" onHome={() => onNavigate({ kind: "home" })} />}
       </div>
 
       <button

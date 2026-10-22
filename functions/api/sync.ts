@@ -8,8 +8,8 @@ import type { Data, Env } from "./_middleware";
 type Entry = { k: string; v: unknown; last: number };
 type Op = { doc: string; replace?: boolean; entries: Entry[] };
 
-// lib/profiles.ts の localStorage キーと同じ形だけを受け付ける
-const DOC = /^(profiles:v1|p:[0-9a-f-]{36}:[a-z0-9]+:v\d+)$/;
+// lib/profiles.ts の localStorage キーと同じ形だけを受け付ける（理科の記録は rika-progress:v1 のように教科名がつく）
+const DOC = /^(profiles:v1|p:[0-9a-f-]{36}:[a-z0-9-]+:v\d+)$/;
 const MAX_OPS = 100;
 const MAX_ENTRIES = 20000;
 const MAX_KEY = 200;

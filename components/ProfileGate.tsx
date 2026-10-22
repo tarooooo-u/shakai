@@ -10,7 +10,9 @@ import {
   type Profile,
   type ProfileColor,
 } from "@/lib/profiles";
-import { solvedCount } from "@/lib/progress";
+import { solvedCount as shakaiSolved } from "@/lib/progress";
+import { rikaSolvedCount } from "@/lib/rika/progress";
+import { APP_NAME } from "@/lib/subjects";
 import SyncStatus from "./SyncStatus";
 
 const COLOR_STYLE: Record<ProfileColor, string> = {
@@ -34,6 +36,9 @@ export function ProfileBadge({ profile, size = "md" }: { profile: Profile; size?
 
 const MAX_NAME = 10;
 
+/** 社会と理科を合わせて解いた数 */
+const solvedCount = (id: string) => shakaiSolved(id) + rikaSolvedCount(id);
+
 /** アプリを開いたとき「だれがやる？」を選ぶ画面。名前の追加・変更・削除もここで */
 export default function ProfileGate() {
   const profiles = useProfiles();
@@ -55,7 +60,7 @@ export default function ProfileGate() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-8 px-4 py-10">
       <header className="space-y-1 text-center">
-        <h1 className="text-3xl font-bold">社会ドリル</h1>
+        <h1 className="text-3xl font-bold">{APP_NAME}</h1>
         <p className="text-muted">{first ? "はじめに、名前を入れてください" : "だれがやる？"}</p>
       </header>
 

@@ -47,6 +47,17 @@
   }
 }
 
+/* 教科ごとの色。社会は上の --accent（紺）、理科は青緑。教科の画面全体を data-subject で囲む */
+[data-subject="rika"] {
+  --accent: #0f6e63;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-subject="rika"] {
+    --accent: #5ccdb8;
+  }
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);

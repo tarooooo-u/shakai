@@ -58,6 +58,7 @@ next-env.d.ts
 /data/mapsets.generated.json
 /data/sheets.generated.json
 /data/kanji.generated.json
+/data/rika/*.generated.json
 
 # Cloudflare (wrangler)
 /.wrangler/

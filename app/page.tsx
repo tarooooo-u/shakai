@@ -1,11 +1,12 @@
 import { Suspense } from "react";
-import App from "@/components/App";
+import Entry from "@/components/Entry";
 
+/** 入口：「だれがやる？」→ その人が前に使った教科（/shakai・/rika）へ */
 export default function Page() {
-  // App が URL のクエリ（共有リンクの出題条件）を読むため Suspense で囲む
+  // Entry が URL のクエリ（?to=rika・?pick=1）を読むため Suspense で囲む
   return (
     <Suspense>
-      <App />
+      <Entry />
     </Suspense>
   );
 }

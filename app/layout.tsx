@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "社会ドリル｜中学受験 社会の一問一答",
-  description: "中学受験の社会（歴史・地理・政治・経済）をサクッと確認できる一問一答。間違えた問題は自動で復習リストへ。",
+  title: "中学受験ドリル",
+  description: "中学受験の社会・理科の一問一答。間違えた問題は自動で復習リストへ。",
 };
 
 export const viewport: Viewport = {
