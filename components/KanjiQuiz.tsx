@@ -48,6 +48,13 @@ export default function KanjiQuiz({ run, onFinish }: { run: KanjiRun; onFinish: 
     setRevealed(true);
   };
 
+  // 解いているあいだだけ、ページ全体を選択できないようにする（globals.css の html.no-select）
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("no-select");
+    return () => root.classList.remove("no-select");
+  }, []);
+
   // キーボード：どっち？は 1〜4 → Enter で次へ（正解なら 2 で「まぐれ」）、書くは Space で答え → 1/2/3、Esc で終了。
   // 毎回の描画のあとに付け直す（いまの問題・状態で動くように）
   useEffect(() => {

@@ -90,3 +90,13 @@ body {
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* 漢字ドリルを解いているあいだは、ページのどこも選択されないようにする
+   （手書きの欄で書いているときに、まわりの文字が選択されないように）。KanjiQuiz が html に付ける */
+html.no-select *,
+html.no-select *::before,
+html.no-select *::after {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
