@@ -10,6 +10,9 @@ import { BarButton, BottomBar, DifficultyBadge, GRADE_META, GradeButtons, Status
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
 
+/** 複数の写真に付ける記号 */
+const KANA = ["ア", "イ", "ウ", "エ", "オ", "カ"];
+
 /**
  * 理科の問題を解く画面。カード（答えを見て〇△×）と4択。
  * 「4択のみ」の問題は、カードで解いているときも4択で出す。
@@ -117,7 +120,67 @@ export default function RikaQuiz({
 
         <p className="text-lg leading-relaxed font-semibold sm:text-xl">{q.question}</p>
 
-        {options && (
+        {q.imageUrl && (
+          <figure className="space-y-1">
+            {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
+            <img src={q.imageUrl} alt="問題の写真" className="mx-auto max-h-80 rounded-xl border border-line" />
+            {q.imageCredit && <figcaption className="text-center text-[11px] text-muted">{q.imageCredit}</figcaption>}
+          </figure>
+        )}
+
+        {q.images && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {q.images.map((im, i) => (
+              <figure key={im.src} className="relative space-y-1 rounded-2xl border border-line bg-surface p-1.5">
+                <span className="absolute top-2 left-2 z-10 flex size-7 items-center justify-center rounded-full bg-ink/70 text-sm font-bold text-white">
+                  {KANA[i]}
+                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
+                <img src={im.src} alt={`${KANA[i]}の写真`} className="aspect-[4/3] w-full rounded-xl bg-surface-2 object-contain" />
+                <figcaption className="text-center text-[10px] text-muted">{im.credit}</figcaption>
+              </figure>
+            ))}
+          </div>
+        )}
+
+        {/* 写真で選ぶ問題。答える前は名前を出さない */}
+        {options && q.imageChoices && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {options.map((o, i) => {
+              const state = !revealed
+                ? "border-line hover:border-accent/60"
+                : o === q.answer
+                  ? "border-ok ring-2 ring-ok"
+                  : o === picked
+                    ? "border-ng ring-2 ring-ng"
+                    : "border-line opacity-50";
+              return (
+                <button
+                  key={o}
+                  type="button"
+                  disabled={revealed}
+                  onClick={() => pick(o)}
+                  aria-label={revealed ? o : `選択肢${i + 1}`}
+                  className={`relative overflow-hidden rounded-2xl border-2 bg-surface p-1.5 text-left transition-colors ${state}`}
+                >
+                  <span className="absolute top-2 left-2 z-10 flex size-6 items-center justify-center rounded-full bg-ink/70 text-xs font-bold text-white">
+                    {i + 1}
+                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
+                  <img src={q.imageChoices![o].src} alt="" className="aspect-[4/3] w-full rounded-xl bg-surface-2 object-cover" />
+                  {revealed && (
+                    <span className="mt-1 block text-center text-sm font-bold">
+                      {o}
+                      <span className="block text-[10px] font-normal text-muted">{q.imageChoices![o].credit}</span>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {options && !q.imageChoices && (
           <div className="grid gap-2 sm:grid-cols-2">
             {options.map((o, i) => {
               const state = !revealed

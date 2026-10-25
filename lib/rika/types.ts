@@ -5,6 +5,12 @@ import type { Difficulty } from "../types";
 /** 理科の分野。社会の Category とは別 */
 export type RikaCategory = "biology" | "earth" | "chemistry";
 
+/** 問題用の写真。credit は「作者（ライセンス）」 */
+export type RikaPicture = { src: string; credit: string };
+
+/** 「画像・データの出典」ページに出す写真の情報（scripts/rika/build-questions.mjs が書き出す） */
+export type RikaImageInfo = { name: string; src: string; kind: string; file: string; artist: string; license: string; url: string };
+
 /** content/rika/questions/*.csv の1行（scripts/rika/build-questions.mjs が変換） */
 export type RikaQuestion = {
   id: string;
@@ -22,6 +28,13 @@ export type RikaQuestion = {
   explanation: string;
   kanjiNote?: string;
   tags: string[];
+  /** 問題といっしょに見せる写真（content/rika/images.csv） */
+  imageUrl?: string;
+  imageCredit?: string;
+  /** 2〜6枚の写真にア・イ・ウ…を付けて並べる */
+  images?: RikaPicture[];
+  /** 写真で選ぶ問題：選択肢の名前 → 写真（いつも4択で出す） */
+  imageChoices?: Record<string, RikaPicture>;
   /** 選択肢を見ないと答えられない問題（カードでは出さない） */
   choiceOnly?: boolean;
   source?: string;

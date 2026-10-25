@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RIKA_QUESTION_BY_ID, RIKA_QUESTIONS } from "@/data/rika";
+import { RIKA_IMAGES, RIKA_QUESTION_BY_ID, RIKA_QUESTIONS } from "@/data/rika";
 import { createLocalStore } from "@/lib/localStore";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
 import { isGraduated, needsReview, statusOf, type Progress } from "@/lib/progress";
@@ -78,13 +78,13 @@ function Main({ profile }: { profile: Profile }) {
     setDrawerOpen(false);
     show(null);
   };
-  // カードのときも「4択のみ」の問題は選択肢を用意する
+  // カードのときも「4択のみ」の問題と写真で選ぶ問題は選択肢を用意する
   const start = (ids: string[]) => {
     if (ids.length === 0) return;
     const choices: Record<string, string[]> = {};
     for (const id of ids) {
       const q = RIKA_QUESTION_BY_ID.get(id)!;
-      if (setting.style !== "choice" && !q.choiceOnly) continue;
+      if (setting.style !== "choice" && !q.choiceOnly && !q.imageChoices) continue;
       const c = buildRikaChoices(q);
       if (c) choices[id] = c;
     }
@@ -392,7 +392,29 @@ function Credits() {
         <h1 className="text-2xl font-bold">画像・データの出典</h1>
         <p className="mt-1 text-sm text-muted">理科の問題で使う画像・データの出典を、ここにまとめます。</p>
       </header>
-      <Empty>まだ画像・データは使っていません。</Empty>
+      {RIKA_IMAGES.length === 0 ? (
+        <Empty>まだ画像・データは使っていません。</Empty>
+      ) : (
+        <Section title={`写真（Wikimedia Commons・${RIKA_IMAGES.length}枚）`}>
+          <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+            {RIKA_IMAGES.map((im) => (
+              <li key={im.src} className="flex items-center gap-3 px-3 py-2 text-xs">
+                {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
+                <img src={im.src} alt="" loading="lazy" className="size-12 shrink-0 rounded-lg object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold">{im.name}</div>
+                  <div className="truncate text-muted">
+                    {im.artist}・{im.license}・
+                    <a href={im.url} target="_blank" rel="noreferrer" className="underline">
+                      出典
+                    </a>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
     </div>
   );
 }

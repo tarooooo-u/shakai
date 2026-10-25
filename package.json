@@ -15,6 +15,7 @@
     "climate": "node scripts/update-climate.mjs",
     "trade": "node scripts/update-trade.mjs",
     "images": "node scripts/fetch-images.mjs",
+    "rika:images": "node scripts/rika/fetch-images.mjs",
     "map": "node scripts/update-map.mjs",
     "agri": "node scripts/update-agri.mjs",
     "industry": "node scripts/update-industry.mjs"

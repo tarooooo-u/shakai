@@ -10,6 +10,7 @@ const CONTENT = join(ROOT, "content", "rika");
 const DIR = join(CONTENT, "questions");
 const OUT_DIR = join(ROOT, "data", "rika");
 const OUT = join(OUT_DIR, "questions.generated.json");
+const IMAGES_OUT = join(OUT_DIR, "images.generated.json");
 const UNITS = JSON.parse(readFileSync(join(CONTENT, "units.json"), "utf8"));
 
 // 分野と id の頭文字（biology.csv → b0001）
@@ -18,6 +19,20 @@ const HEADER = ["id", "単元", "分類", "難易度", "学年", "問題", "答�
 const DIFFICULTY = { 基本: "basic", 標準: "standard", 発展: "advanced", 最難関: "top" };
 const NEEDS_CHOICES = /どれ(か|で|が)/;
 const list = (s) => s.split(/[|｜]/).map((x) => x.trim()).filter(Boolean);
+
+// 問題用の写真（content/rika/images.csv：npm run rika:images で Wikimedia Commons から取得）
+const IMAGES = new Map();
+{
+  const [, ...rows] = parse(readFileSync(join(CONTENT, "images.csv"), "utf8"), { bom: true });
+  for (const [name, src, kind, file, artist, license, url] of rows) {
+    const who = artist.length > 40 ? artist.slice(0, 40) + "…" : artist;
+    IMAGES.set(name, { name, src, kind, file, artist, license, url, credit: `${who}（${license}）` });
+  }
+}
+const pic = (name) => {
+  const i = IMAGES.get(name);
+  return i && { src: i.src, credit: i.credit };
+};
 
 const errors = [];
 const warnings = [];
@@ -69,14 +84,34 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
     if (!r.問題) err("問題が空です");
     if (!r.答え) err("答えが空です");
     if (!r.解説) err("解説が空です");
-    // 画像は理科用の取得のしくみを作ってから（今は使えない）
-    if (r.画像) err("理科の問題の画像はまだ使えません");
     const choices = list(r.誤答選択肢);
+    // 画像列：「img:名前」→ その写真を表示、「imgs:名前|名前|…」→ 2〜6枚にア・イ・ウ…を付けて並べる、
+    // 「choices」→ 答えと誤答選択肢を写真で並べて選ぶ（カードで解いているときも4択で出す）
+    let image;
+    let images;
+    let imageChoices;
+    if (r.画像.startsWith("img:")) {
+      image = pic(r.画像.slice(4));
+      if (!image) err(`画像「${r.画像.slice(4)}」が content/rika/images.csv にありません`);
+    } else if (r.画像.startsWith("imgs:")) {
+      const names = list(r.画像.slice(5));
+      const missing = names.filter((n) => !IMAGES.has(n));
+      if (names.length < 2 || names.length > 6) err("imgs: の画像は 2〜6 枚");
+      else if (missing.length) err(`画像がありません：${missing.join("、")}`);
+      else images = names.map(pic);
+    } else if (r.画像 === "choices") {
+      const names = [r.答え, ...choices];
+      const missing = names.filter((n) => !IMAGES.has(n));
+      if (missing.length) err(`画像がない選択肢：${missing.join("、")}`);
+      else imageChoices = Object.fromEntries(names.map((n) => [n, pic(n)]));
+    } else if (r.画像) {
+      err("画像は「img:名前」「imgs:名前|名前|…」「choices」のどれか");
+    }
     if (choices.length < 3) err("誤答選択肢は | で区切って3つ以上");
     if (choices.includes(r.答え)) err("誤答選択肢に答えが入っています");
     const choiceOnly = r.出題形式 === "4択のみ";
     if (r.出題形式 && !choiceOnly) err("出題形式は「4択のみ」か空欄");
-    if (!choiceOnly && NEEDS_CHOICES.test(r.問題)) warnings.push(`${name}:${info.lines} [${r.id}] 選択肢がないと答えられない問題は、出題形式を「4択のみ」にする`);
+    if (!choiceOnly && !imageChoices && NEEDS_CHOICES.test(r.問題)) warnings.push(`${name}:${info.lines} [${r.id}] 選択肢がないと答えられない問題は、出題形式を「4択のみ」にする`);
 
     questions.push({
       id: r.id,
@@ -92,6 +127,9 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
       explanation: r.解説,
       ...(r.漢字注意 && { kanjiNote: r.漢字注意 }),
       tags: list(r.タグ),
+      ...(image && { imageUrl: image.src, imageCredit: image.credit }),
+      ...(images && { images }),
+      ...(imageChoices && { imageChoices }),
       ...(choiceOnly && { choiceOnly }),
       ...(r.出典メモ && { source: r.出典メモ }),
       checked: r.確認 === "済",
@@ -112,5 +150,15 @@ if (errors.length) {
 
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(OUT, JSON.stringify(questions, null, 1) + "\n");
+// 「画像・データの出典」ページ用（使っている写真の作者・ライセンス）
+const used = new Set(questions.flatMap((q) => [q.imageUrl, ...(q.images ?? []).map((i) => i.src), ...Object.values(q.imageChoices ?? {}).map((i) => i.src)]));
+writeFileSync(
+  IMAGES_OUT,
+  JSON.stringify(
+    [...IMAGES.values()].filter((i) => used.has(i.src)).map(({ name, src, kind, file, artist, license, url }) => ({ name, src, kind, file, artist, license, url })),
+    null,
+    1,
+  ) + "\n",
+);
 const count = (c) => questions.filter((q) => q.category === c).length;
 console.log(`理科の問題データ OK: ${questions.length}問（生物 ${count("biology")} / 地学 ${count("earth")} / 化学 ${count("chemistry")}）`);
