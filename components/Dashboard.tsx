@@ -75,9 +75,16 @@ export default function Dashboard({
         if (!byUnit.has(key)) byUnit.set(key, emptyCount());
         return byUnit.get(key)!;
       };
-      const counts = [unit(`${q.category}/${q.unit}`), byCategory[q.category], byLevel[q.difficulty], total];
+      const counts = [
+        unit(`${q.category}/${q.unit}`),
+        byCategory[q.category],
+        byLevel[q.difficulty],
+        unit(levelKey(q.difficulty, q.category)),
+        total,
+      ];
       // 時事テーマのある問題は、時事のほうにも数える（全体の数は1回だけ）
-      if (q.jiji && q.category !== "current") counts.push(unit(`current/${q.jiji}`), byCategory.current);
+      if (q.jiji && q.category !== "current")
+        counts.push(unit(`current/${q.jiji}`), byCategory.current, unit(levelKey(q.difficulty, "current")));
       for (const c of counts) {
         c[part]++;
         c.total++;
@@ -123,7 +130,7 @@ export default function Dashboard({
       </div>
 
       {/* レベルごとの卒業率 */}
-      <LevelRows byLevel={byLevel} />
+      <LevelTable byLevel={byLevel} byUnit={byUnit} />
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -228,32 +235,52 @@ function Ring({ label, count, onClick, active }: { label: string; count: Count; 
   );
 }
 
-/** レベル（難易度）ごとの卒業率。全分野の問題を1回ずつ数える */
-function LevelRows({ byLevel }: { byLevel: Record<Difficulty, Count> }) {
+/** レベル×分野の集計のキー（byUnit に一緒に入れる） */
+const levelKey = (d: Difficulty, c: Category) => `level:${d}/${c}`;
+
+/** レベル（難易度）×分野の卒業率の表。「全体」は全分野の問題を1回ずつ数える */
+function LevelTable({ byLevel, byUnit }: { byLevel: Record<Difficulty, Count>; byUnit: Map<string, Count> }) {
   const levels = DIFFICULTIES.filter((d) => byLevel[d].total > 0);
+  const cols = "grid-cols-[3.5rem_repeat(5,minmax(0,1fr))] sm:grid-cols-[4.5rem_repeat(5,minmax(0,1fr))]";
   return (
     <section className="rounded-2xl border border-line bg-surface p-3 sm:p-4">
-      <div className="mb-1 flex flex-wrap items-center gap-2 px-2">
-        <h2 className="text-sm font-bold">レベル別</h2>
+      <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+        <h2 className="text-sm font-bold">レベル別・分野別の卒業率</h2>
         <Legend />
       </div>
-      {levels.map((d) => {
-        const c = byLevel[d];
-        const pct = Math.round((c.graduated / c.total) * 100);
-        return (
-          <div
-            key={d}
-            className="grid min-h-10 grid-cols-[4.5rem_minmax(0,1fr)_8rem] items-center gap-3 px-2 text-sm sm:grid-cols-[6rem_minmax(0,1fr)_9rem]"
-          >
-            <span className="font-semibold">{DIFFICULTY_LABEL[d]}</span>
-            <Bar count={c} />
-            <span className="text-right text-xs text-muted tabular-nums">
-              <b className="text-base text-ink">{pct}%</b> 卒業 {c.graduated}/{c.total}
-            </span>
-          </div>
-        );
-      })}
+      <div className={`grid ${cols} gap-x-3 px-1 pb-1 text-[11px] font-semibold text-muted`}>
+        <span />
+        {CATEGORIES.map((c) => (
+          <span key={c}>{CATEGORY_LABEL[c]}</span>
+        ))}
+        <span>全体</span>
+      </div>
+      {levels.map((d) => (
+        <div key={d} className={`grid ${cols} items-center gap-x-3 border-t border-line px-1 py-2 text-sm`}>
+          <span className="font-semibold">{DIFFICULTY_LABEL[d]}</span>
+          {CATEGORIES.map((c) => (
+            <LevelCell key={c} count={byUnit.get(levelKey(d, c)) ?? emptyCount()} />
+          ))}
+          <LevelCell count={byLevel[d]} strong />
+        </div>
+      ))}
     </section>
+  );
+}
+
+function LevelCell({ count, strong }: { count: Count; strong?: boolean }) {
+  if (count.total === 0) return <span className="text-xs text-muted">—</span>;
+  const pct = Math.round((count.graduated / count.total) * 100);
+  return (
+    <div className="min-w-0 space-y-1">
+      <div className="flex items-baseline justify-between gap-1 tabular-nums">
+        <b className={strong ? "text-base" : ""}>{pct}%</b>
+        <span className="truncate text-[10px] text-muted">
+          {count.graduated}/{count.total}
+        </span>
+      </div>
+      <Bar count={count} />
+    </div>
   );
 }
 
