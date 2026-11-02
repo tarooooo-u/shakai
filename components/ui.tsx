@@ -197,6 +197,24 @@ export function BarButton({ onClick, disabled, children }: { onClick: () => void
   );
 }
 
+/** 「← 前へ」。ひとつ前の問題を、答えと解説が出た形で見返す（採点は変えない） */
+export function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="min-h-11 rounded-xl px-2 text-sm font-semibold text-muted hover:text-ink">
+      ← 前へ
+    </button>
+  );
+}
+
+/** 見返しているあいだに出す帯 */
+export function LookingBackNote() {
+  return (
+    <p className="rounded-xl bg-surface-2 px-3 py-2 text-center text-sm font-semibold text-muted">
+      ひとつ前の問題を見ているよ（〇△×はそのまま）
+    </p>
+  );
+}
+
 /** ☆／★ お気に入りの切り替え */
 export function FavoriteButton({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (

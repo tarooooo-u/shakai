@@ -11,7 +11,7 @@ import MapTap, { mapFeedback } from "./MapTap";
 import RainTempChart from "./RainTempChart";
 import { KanjiWordNotes } from "./KanjiQuiz";
 import WritingPad, { ModelAnswer, type Stroke } from "./WritingPad";
-import { BarButton, BottomBar, CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META, GradeButtons, StatusBadge } from "./ui";
+import { BackButton, BarButton, BottomBar, CategoryBadge, DifficultyBadge, FavoriteButton, GRADE_META, GradeButtons, LookingBackNote, StatusBadge } from "./ui";
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
 
@@ -27,18 +27,25 @@ export default function Quiz({
 }) {
   const { ids } = session;
   const [index, setIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
+  const [nowRevealed, setRevealed] = useState(false);
   // 4択で選んだ選択肢
-  const [picked, setPicked] = useState<string | null>(null);
+  const [nowPicked, setPicked] = useState<string | null>(null);
   // 地図問題で立てたピン
-  const [pin, setPin] = useState<LatLng | null>(null);
+  const [nowPin, setPin] = useState<LatLng | null>(null);
   const [results, setResults] = useState<Record<string, Grade>>({});
   // 書いて答えるときの手書きの線
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [nowStrokes, setStrokes] = useState<Stroke[]>([]);
+  // ひとつ前に答えた問題（見返す用。採点はそのまま）
+  const [prev, setPrev] = useState<Answered | null>(null);
+  const [looking, setLooking] = useState(false);
   const favorites = useFavorites();
   const progress = useProgress();
 
-  const q = QUESTION_BY_ID.get(ids[index])!;
+  // 見返しているときは、ひとつ前の問題を答えのあとの形で出す
+  const view: Answered =
+    looking && prev ? prev : { id: ids[index], revealed: nowRevealed, picked: nowPicked, pin: nowPin, strokes: nowStrokes };
+  const { revealed, picked, pin, strokes } = view;
+  const q = QUESTION_BY_ID.get(view.id)!;
   const mapTask = q.mapTask;
   const options = mapTask ? null : (session.choices[q.id] ?? null);
   const mapVerdict = mapTask && pin ? judgeMap(mapTask, pin) : null;
@@ -56,6 +63,7 @@ export default function Quiz({
       if (index + 1 >= ids.length) {
         onFinish(next);
       } else {
+        setPrev({ id: q.id, revealed: true, picked, pin, strokes });
         setIndex(index + 1);
         setRevealed(false);
         setPicked(null);
@@ -63,8 +71,13 @@ export default function Quiz({
         setStrokes([]);
       }
     },
-    [q.id, results, index, ids.length, onFinish],
+    [q.id, results, index, ids.length, onFinish, picked, pin, strokes],
   );
+
+  const lookBack = useCallback((on: boolean) => {
+    setLooking(on);
+    window.scrollTo(0, 0);
+  }, []);
 
   const pick = useCallback(
     (option: string) => {
@@ -86,7 +99,12 @@ export default function Quiz({
       if (e.key === "f" || e.key === "F") return toggleFavorite(q.id);
       const enter = e.key === " " || e.key === "Enter";
       let handled = true;
-      if (mapTask && !revealed) {
+      if (looking) {
+        if (enter || e.key === "ArrowRight") lookBack(false);
+        else handled = false;
+      } else if (e.key === "ArrowLeft" && prev) {
+        lookBack(true);
+      } else if (mapTask && !revealed) {
         if (enter && pin) setRevealed(true);
         else handled = false;
       } else if (options && !revealed) {
@@ -109,7 +127,7 @@ export default function Quiz({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [options, mapTask, pin, auto, revealed, correct, pick, grade, onFinish, results, q.id]);
+  }, [options, mapTask, pin, auto, revealed, correct, pick, grade, onFinish, results, q.id, looking, prev, lookBack]);
 
   return (
     <div className="space-y-4">
@@ -122,6 +140,7 @@ export default function Quiz({
         >
           ✕ 終了
         </button>
+        {prev && !looking && <BackButton onClick={() => lookBack(true)} />}
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
           <div
             className="h-full rounded-full bg-accent transition-all"
@@ -129,9 +148,11 @@ export default function Quiz({
           />
         </div>
         <span className="text-sm font-semibold tabular-nums text-muted">
-          {index + 1} / {ids.length}
+          {looking ? index : index + 1} / {ids.length}
         </span>
       </div>
+
+      {looking && <LookingBackNote />}
 
       {/* 問題カード */}
       <article className="space-y-5 rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-8">
@@ -155,7 +176,8 @@ export default function Quiz({
           <figure className="space-y-1">
             {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
             <img src={q.imageUrl} alt="問題の画像" loading="lazy" className="mx-auto max-h-80 rounded-xl border border-line" />
-            {q.imageCredit && <figcaption className="text-center text-[11px] text-muted">{q.imageCredit}</figcaption>}
+            {/* 出典に答えが書いてあることがあるので、答えのあとに出す */}
+            {revealed && q.imageCredit && <figcaption className="text-center text-[11px] text-muted">{q.imageCredit}</figcaption>}
           </figure>
         )}
 
@@ -168,7 +190,7 @@ export default function Quiz({
                 </span>
                 {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
                 <img src={im.src} alt={`${KANA[i]}の画像`} loading="lazy" className="aspect-[4/3] w-full rounded-xl object-contain bg-surface-2" />
-                <figcaption className="text-center text-[10px] text-muted">{im.credit}</figcaption>
+                {revealed && <figcaption className="text-center text-[10px] text-muted">{im.credit}</figcaption>}
               </figure>
             ))}
           </div>
@@ -261,7 +283,9 @@ export default function Quiz({
 
       {/* マウスのある端末（PC）だけ */}
       <p className="hidden text-center text-xs text-muted pointer-fine:block">
-        {mapTask
+        {looking
+          ? "キーボード：Enter でいまの問題にもどる ／ Esc で終了"
+          : mapTask
           ? "キーボード：Enter で決定・次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
           : options
           ? "キーボード：1〜4 で選ぶ ／ Enter で次へ（正解のとき 2 で「まぐれ」） ／ F でお気に入り ／ Esc で終了"
@@ -273,7 +297,9 @@ export default function Quiz({
       {/* 答える操作は画面の下に固定（4択は選択肢を押すので、答える前は出さない） */}
       {(revealed || !options) && (
         <BottomBar>
-          {revealed ? (
+          {looking ? (
+            <BarButton onClick={() => lookBack(false)}>いまの問題にもどる →</BarButton>
+          ) : revealed ? (
             <div className="space-y-2">
               {/* 地図は大きいので、答えと判定を帯にも出す（解説までスクロールしなくてよいように） */}
               {mapVerdict && (
@@ -296,7 +322,9 @@ export default function Quiz({
   );
 }
 
-const MAP_VERDICT = { ok: "正解！", close: "おしい！", ng: "ざんねん" };
+type Answered = { id: string; revealed: boolean; picked: string | null; pin: LatLng | null; strokes: Stroke[] };
+
+const MAP_VERDICT ={ ok: "正解！", close: "おしい！", ng: "ざんねん" };
 const VERDICT_TEXT = { ok: "text-ok", close: "text-unsure", ng: "text-ng" };
 
 function Explanation({ q, verdict, note, strokes }: { q: Question; verdict?: string; note?: string; strokes?: Stroke[] }) {

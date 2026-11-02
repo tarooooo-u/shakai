@@ -6,7 +6,7 @@ import { recordRikaGrade, useRikaProgress } from "@/lib/rika/progress";
 import type { RikaSession } from "@/lib/rika/session";
 import { RIKA_CATEGORY_LABEL, type RikaQuestion } from "@/lib/rika/types";
 import type { Grade } from "@/lib/types";
-import { BarButton, BottomBar, DifficultyBadge, GRADE_META, GradeButtons, StatusBadge } from "../ui";
+import { BackButton, BarButton, BottomBar, DifficultyBadge, GRADE_META, GradeButtons, LookingBackNote, StatusBadge } from "../ui";
 
 const GRADES: Grade[] = ["ok", "unsure", "ng"];
 
@@ -26,12 +26,18 @@ export default function RikaQuiz({
 }) {
   const { ids } = session;
   const [index, setIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [picked, setPicked] = useState<string | null>(null);
+  const [nowRevealed, setRevealed] = useState(false);
+  const [nowPicked, setPicked] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, Grade>>({});
+  // ひとつ前に答えた問題（見返す用。採点はそのまま）
+  const [prev, setPrev] = useState<{ id: string; picked: string | null } | null>(null);
+  const [looking, setLooking] = useState(false);
   const progress = useRikaProgress();
 
-  const q = RIKA_QUESTION_BY_ID.get(ids[index])!;
+  // 見返しているときは、ひとつ前の問題を答えのあとの形で出す
+  const view = looking && prev ? { ...prev, revealed: true } : { id: ids[index], picked: nowPicked, revealed: nowRevealed };
+  const { revealed, picked } = view;
+  const q = RIKA_QUESTION_BY_ID.get(view.id)!;
   const options = session.choices[q.id] ?? null;
   const correct = picked === q.answer;
 
@@ -43,14 +49,20 @@ export default function RikaQuiz({
       if (index + 1 >= ids.length) {
         onFinish(next);
       } else {
+        setPrev({ id: q.id, picked });
         setIndex(index + 1);
         setRevealed(false);
         setPicked(null);
         window.scrollTo(0, 0);
       }
     },
-    [q.id, results, index, ids.length, onFinish],
+    [q.id, results, index, ids.length, onFinish, picked],
   );
+
+  const lookBack = useCallback((on: boolean) => {
+    setLooking(on);
+    window.scrollTo(0, 0);
+  }, []);
 
   const pick = useCallback((option: string) => {
     setPicked(option);
@@ -67,7 +79,12 @@ export default function RikaQuiz({
       if (e.key === "Escape") return onFinish(results);
       const enter = e.key === " " || e.key === "Enter";
       let handled = true;
-      if (options && !revealed) {
+      if (looking) {
+        if (enter || e.key === "ArrowRight") lookBack(false);
+        else handled = false;
+      } else if (e.key === "ArrowLeft" && prev) {
+        lookBack(true);
+      } else if (options && !revealed) {
         const i = Number(e.key) - 1;
         if (i >= 0 && i < options.length) pick(options[i]);
         else handled = false;
@@ -87,7 +104,7 @@ export default function RikaQuiz({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [options, revealed, correct, pick, grade, onFinish, results]);
+  }, [options, revealed, correct, pick, grade, onFinish, results, looking, prev, lookBack]);
 
   return (
     <div className="space-y-4">
@@ -100,13 +117,16 @@ export default function RikaQuiz({
         >
           ✕ 終了
         </button>
+        {prev && !looking && <BackButton onClick={() => lookBack(true)} />}
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
           <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(index / ids.length) * 100}%` }} />
         </div>
         <span className="text-sm font-semibold tabular-nums text-muted">
-          {index + 1} / {ids.length}
+          {looking ? index : index + 1} / {ids.length}
         </span>
       </div>
+
+      {looking && <LookingBackNote />}
 
       {/* 問題カード */}
       <article className="space-y-5 rounded-3xl border border-line bg-surface p-5 shadow-sm sm:p-8">
@@ -124,7 +144,8 @@ export default function RikaQuiz({
           <figure className="space-y-1">
             {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
             <img src={q.imageUrl} alt="問題の写真" className="mx-auto max-h-80 rounded-xl border border-line" />
-            {q.imageCredit && <figcaption className="text-center text-[11px] text-muted">{q.imageCredit}</figcaption>}
+            {/* 出典に答えが書いてあることがあるので、答えのあとに出す */}
+            {revealed && q.imageCredit && <figcaption className="text-center text-[11px] text-muted">{q.imageCredit}</figcaption>}
           </figure>
         )}
 
@@ -137,7 +158,7 @@ export default function RikaQuiz({
                 </span>
                 {/* eslint-disable-next-line @next/next/no-img-element -- 静的書き出しのため next/image は使わない */}
                 <img src={im.src} alt={`${KANA[i]}の写真`} className="aspect-[4/3] w-full rounded-xl bg-surface-2 object-contain" />
-                <figcaption className="text-center text-[10px] text-muted">{im.credit}</figcaption>
+                {revealed && <figcaption className="text-center text-[10px] text-muted">{im.credit}</figcaption>}
               </figure>
             ))}
           </div>
@@ -211,7 +232,9 @@ export default function RikaQuiz({
 
       {/* マウスのある端末（PC）だけ */}
       <p className="hidden text-center text-xs text-muted pointer-fine:block">
-        {options
+        {looking
+          ? "キーボード：Enter でいまの問題にもどる ／ Esc で終了"
+          : options
           ? "キーボード：1〜4 で選ぶ ／ Enter で次へ（正解のとき 2 で「まぐれ」） ／ Esc で終了"
           : "キーボード：Space で答え ／ 1・2・3 で 〇・△・× ／ Esc で終了"}
       </p>
@@ -219,7 +242,9 @@ export default function RikaQuiz({
       {/* 答える操作は画面の下に固定（4択は選択肢を押すので、答える前は出さない） */}
       {(revealed || !options) && (
         <BottomBar>
-          {revealed ? (
+          {looking ? (
+            <BarButton onClick={() => lookBack(false)}>いまの問題にもどる →</BarButton>
+          ) : revealed ? (
             <GradeButtons self={!options} correct={correct} onGrade={grade} />
           ) : (
             <BarButton onClick={() => setRevealed(true)}>答えを見る</BarButton>
