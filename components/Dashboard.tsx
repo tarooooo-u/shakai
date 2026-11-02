@@ -9,7 +9,7 @@ import DailyChart from "./DailyChart";
 import { MAP_MODE_LABEL, setProgress, type MapMode } from "@/lib/mapSets";
 import { isGraduated, needsReview, type Progress, type QuestionRecord } from "@/lib/progress";
 import { ngCount, sheetKey, useSheetProgress } from "@/lib/sheets";
-import { CATEGORIES, CATEGORY_LABEL, type Category } from "@/lib/types";
+import { CATEGORIES, CATEGORY_LABEL, DIFFICULTIES, DIFFICULTY_LABEL, type Category, type Difficulty } from "@/lib/types";
 
 // 入試の日（カウントダウン用）
 const EXAM_DATE = new Date(2027, 1, 1);
@@ -64,9 +64,10 @@ export default function Dashboard({
   const stored = tabStore.use();
   const tab = TABS.some((t) => t.id === stored) ? stored : "history";
 
-  const { byUnit, byCategory, total } = useMemo(() => {
+  const { byUnit, byCategory, byLevel, total } = useMemo(() => {
     const byUnit = new Map<string, Count>();
     const byCategory = Object.fromEntries(CATEGORIES.map((c) => [c, emptyCount()])) as Record<Category, Count>;
+    const byLevel = Object.fromEntries(DIFFICULTIES.map((d) => [d, emptyCount()])) as Record<Difficulty, Count>;
     const total = emptyCount();
     for (const q of QUESTIONS) {
       const part = partOf(progress[q.id]);
@@ -74,7 +75,7 @@ export default function Dashboard({
         if (!byUnit.has(key)) byUnit.set(key, emptyCount());
         return byUnit.get(key)!;
       };
-      const counts = [unit(`${q.category}/${q.unit}`), byCategory[q.category], total];
+      const counts = [unit(`${q.category}/${q.unit}`), byCategory[q.category], byLevel[q.difficulty], total];
       // 時事テーマのある問題は、時事のほうにも数える（全体の数は1回だけ）
       if (q.jiji && q.category !== "current") counts.push(unit(`current/${q.jiji}`), byCategory.current);
       for (const c of counts) {
@@ -82,7 +83,7 @@ export default function Dashboard({
         c.total++;
       }
     }
-    return { byUnit, byCategory, total };
+    return { byUnit, byCategory, byLevel, total };
   }, [progress]);
 
   const streak = streakDays(
@@ -120,6 +121,9 @@ export default function Dashboard({
           <Ring key={c} label={CATEGORY_LABEL[c]} count={byCategory[c]} onClick={() => tabStore.set(c)} active={tab === c} />
         ))}
       </div>
+
+      {/* レベルごとの卒業率 */}
+      <LevelRows byLevel={byLevel} />
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -221,6 +225,35 @@ function Ring({ label, count, onClick, active }: { label: string; count: Count; 
         <div className="text-[11px] whitespace-nowrap text-muted tabular-nums">要復習 {count.review}</div>
       </div>
     </button>
+  );
+}
+
+/** レベル（難易度）ごとの卒業率。全分野の問題を1回ずつ数える */
+function LevelRows({ byLevel }: { byLevel: Record<Difficulty, Count> }) {
+  const levels = DIFFICULTIES.filter((d) => byLevel[d].total > 0);
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-3 sm:p-4">
+      <div className="mb-1 flex flex-wrap items-center gap-2 px-2">
+        <h2 className="text-sm font-bold">レベル別</h2>
+        <Legend />
+      </div>
+      {levels.map((d) => {
+        const c = byLevel[d];
+        const pct = Math.round((c.graduated / c.total) * 100);
+        return (
+          <div
+            key={d}
+            className="grid min-h-10 grid-cols-[4.5rem_minmax(0,1fr)_8rem] items-center gap-3 px-2 text-sm sm:grid-cols-[6rem_minmax(0,1fr)_9rem]"
+          >
+            <span className="font-semibold">{DIFFICULTY_LABEL[d]}</span>
+            <Bar count={c} />
+            <span className="text-right text-xs text-muted tabular-nums">
+              <b className="text-base text-ink">{pct}%</b> 卒業 {c.graduated}/{c.total}
+            </span>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
