@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { placeRings, unitsToPlace, type Place } from "@/lib/mapSets";
 import { Loupe, MapLayers, getProjection, mapBoxStyle, toMapPoint, useLoupe, type Projection } from "./mapBase";
 
@@ -24,6 +25,10 @@ const COLOR: Record<MarkTone, string> = {
 const HIT_PX = 28;
 // 面の中をタップしたとき、線・点がこれより近ければ線・点をえらぶ（平野の中の川）。遠ければ面（湖のそばの岬より湖）
 const ON_LINE_PX = 12;
+// 指でタップしたとき、この距離（画面の px）の中に印が2つ以上あれば、拡大した地図でえらびなおしてもらう
+const FINGER_PX = 18;
+// 拡大した地図の倍率（地図が小さく出るスマホでは、そのぶん大きくする）
+const ZOOM = 3;
 
 /** 白地図に山脈の線・火山の▲を描く。onPick があれば、印をタップしてえらべる */
 export default function MarksMap({
@@ -38,38 +43,15 @@ export default function MarksMap({
   const svg = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
   const [hover, setHover] = useState<string | null>(null);
+  // 指の下に印が重なっていたときに出す、拡大した地図のまん中（と、もとの地図の拡大率）
+  const [zoom, setZoom] = useState<MapPoint | null>(null);
   const { loupe, update: updateLoupe, hide: hideLoupe } = useLoupe(svg);
   const P = getProjection(extent);
   const size = useMarkSize(svg, P.W);
 
-  // いちばん近い印（HIT_PX より遠ければなし）。面の中なら、その面（面の中に面があれば小さいほう）。
-  // ただし線・点の上（ON_LINE_PX まで）なら線・点（平野の中を流れる川もえらべるように）。点と線では点（山脈の上の山の▲）
   const nearest = (e: PointerEvent<SVGSVGElement>) => {
     const pt = toMapPoint(svg.current, e);
-    if (!pt) return null;
-    let line: string | null = null;
-    let lineD = HIT_PX / pt.pxPerUnit;
-    let point: string | null = null;
-    let pointD = ON_LINE_PX / pt.pxPerUnit;
-    let area: string | null = null;
-    let areaD = HIT_PX / pt.pxPerUnit;
-    let areaSize = Infinity;
-    for (const { place } of marks) {
-      if (!place.area) {
-        const d = unitsToPlace(extent, place, pt.x, pt.y);
-        if (d < lineD) [line, lineD] = [place.id, d];
-        if (place.coords.length === 1 && d < pointD) [point, pointD] = [place.id, d];
-        continue;
-      }
-      // 小さい面は、まわりの丸の中も面の中とする
-      const circle = smallAreaCircle(P, place, size);
-      const d = circle ? Math.max(0, Math.hypot(pt.x - circle.cx, pt.y - circle.cy) - circle.r) : unitsToPlace(extent, place, pt.x, pt.y);
-      const s = d === 0 ? boxSize(place) : 0;
-      if (d < areaD || (d === 0 && areaD === 0 && s < areaSize)) [area, areaD, areaSize] = [place.id, d, s];
-    }
-    if (point) return point;
-    if (line && (lineD <= ON_LINE_PX / pt.pxPerUnit || areaD > 0)) return line;
-    return area ?? line;
+    return pt ? hitTest(P, extent, marks, pt, size).best : null;
   };
   const track = (e: PointerEvent<SVGSVGElement>) => {
     setHover(nearest(e));
@@ -104,9 +86,13 @@ export default function MarksMap({
         onPointerUp={(e) => {
           if (!onPick || !dragging.current) return;
           release();
-          const id = nearest(e);
           setHover(null);
-          if (id) onPick(id);
+          const pt = toMapPoint(svg.current, e);
+          if (!pt) return;
+          const hit = hitTest(P, extent, marks, pt, size);
+          // 指は太くてねらいがずれやすいので、指の下に印が重なっていたら拡大してえらびなおしてもらう（マウスはそのまま）
+          if (e.pointerType !== "mouse" && hit.near >= 2) setZoom(pt);
+          else if (hit.best) onPick(hit.best);
         }}
         onPointerCancel={release}
         onPointerLeave={() => !dragging.current && setHover(null)}
@@ -117,7 +103,143 @@ export default function MarksMap({
       <Loupe P={P} at={onPick ? loupe : null}>
         {draw}
       </Loupe>
+      {onPick && zoom && (
+        <ZoomPicker
+          P={P}
+          extent={extent}
+          marks={marks}
+          at={zoom}
+          size={size}
+          onPick={(id) => {
+            setZoom(null);
+            onPick(id);
+          }}
+          onClose={() => setZoom(null)}
+        />
+      )}
     </>
+  );
+}
+
+type MapPoint = { x: number; y: number; pxPerUnit: number };
+
+/**
+ * 地図の座標 pt にいちばん近い印（HIT_PX より遠ければなし）と、指の下（FINGER_PX の中）にある印の数。
+ * 面の中なら、その面（面の中に面があれば小さいほう）。ただし線・点の上（ON_LINE_PX まで）なら線・点
+ * （平野の中を流れる川もえらべるように）。点と線では点（山脈の上の山の▲）。size は印の大きさの倍率
+ */
+function hitTest(P: Projection, extent: string, marks: Mark[], pt: MapPoint, size: number) {
+  const finger = FINGER_PX / pt.pxPerUnit;
+  let line: string | null = null;
+  let lineD = HIT_PX / pt.pxPerUnit;
+  let point: string | null = null;
+  let pointD = ON_LINE_PX / pt.pxPerUnit;
+  let area: string | null = null;
+  let areaD = HIT_PX / pt.pxPerUnit;
+  let areaSize = Infinity;
+  let near = 0;
+  for (const { place } of marks) {
+    if (!place.area) {
+      const d = unitsToPlace(extent, place, pt.x, pt.y);
+      if (d <= finger) near++;
+      if (d < lineD) [line, lineD] = [place.id, d];
+      if (place.coords.length === 1 && d < pointD) [point, pointD] = [place.id, d];
+      continue;
+    }
+    // 小さい面は、まわりの丸の中も面の中とする
+    const circle = smallAreaCircle(P, place, size);
+    const d = circle ? Math.max(0, Math.hypot(pt.x - circle.cx, pt.y - circle.cy) - circle.r) : unitsToPlace(extent, place, pt.x, pt.y);
+    if (d <= finger) near++;
+    const s = d === 0 ? boxSize(place) : 0;
+    if (d < areaD || (d === 0 && areaD === 0 && s < areaSize)) [area, areaD, areaSize] = [place.id, d, s];
+  }
+  const best = point ?? (line && (lineD <= ON_LINE_PX / pt.pxPerUnit || areaD > 0) ? line : (area ?? line));
+  return { best, near };
+}
+
+/**
+ * 指の下に印が重なっていたとき（屋久島と宮之浦岳、平野と川など）に出す、拡大した地図。
+ * 地形だけ大きくして、印の太さ・大きさはそのままなので、重なっていた印がはなれてえらびやすくなる。
+ * 同じ地図を大きくするだけなので、答えのヒントにはならない
+ */
+function ZoomPicker({
+  P,
+  extent,
+  marks,
+  at,
+  size,
+  onPick,
+  onClose,
+}: {
+  P: Projection;
+  extent: string;
+  marks: Mark[];
+  at: MapPoint;
+  size: number;
+  onPick: (placeId: string) => void;
+  onClose: () => void;
+}) {
+  const svg = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<string | null>(null);
+  const down = useRef(false);
+  const [opened] = useState(() => Date.now());
+  const zoom = ZOOM * Math.sqrt(size);
+  const sw = size / zoom;
+  const box = Math.min(window.innerWidth - 56, window.innerHeight - 180, 440);
+  const view = box / (at.pxPerUnit * zoom);
+  const hit = (e: PointerEvent<SVGSVGElement>) => {
+    const pt = toMapPoint(svg.current, e);
+    return pt ? hitTest(P, extent, marks, pt, sw).best : null;
+  };
+  const shown = hover ? marks.map((m) => (m.place.id === hover ? { ...m, tone: "target" as const } : m)) : marks;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      // 開いた直後のクリック（さっき指を離したときのもの）ではとじない
+      onClick={(e) => e.target === e.currentTarget && Date.now() - opened > 400 && onClose()}
+    >
+      <div className="space-y-2 rounded-3xl border border-line bg-surface p-3 shadow-xl">
+        <div className="flex items-center gap-2" style={{ width: box }}>
+          <p className="min-w-0 flex-1 text-sm font-semibold">近くに印がいくつかあるよ。大きくした地図でタップしよう。</p>
+          <button type="button" onClick={onClose} className="min-h-11 shrink-0 rounded-xl px-2 text-sm font-semibold text-muted hover:text-ink">
+            ✕ もどる
+          </button>
+        </div>
+        <svg
+          ref={svg}
+          viewBox={`${at.x - view / 2} ${at.y - view / 2} ${view} ${view}`}
+          width={box}
+          height={box}
+          role="img"
+          aria-label="大きくした白地図。答えの印をタップする"
+          className="block cursor-pointer touch-none rounded-2xl border border-line"
+          onContextMenu={(e) => e.preventDefault()}
+          onPointerDown={(e) => {
+            down.current = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setHover(hit(e));
+          }}
+          onPointerMove={(e) => setHover(hit(e))}
+          onPointerUp={(e) => {
+            if (!down.current) return;
+            down.current = false;
+            const id = hit(e);
+            setHover(null);
+            if (id) onPick(id);
+          }}
+          onPointerCancel={() => {
+            down.current = false;
+            setHover(null);
+          }}
+          onPointerLeave={() => !down.current && setHover(null)}
+        >
+          <MapLayers P={P} sw={1 / zoom} />
+          <MarkLayer P={P} marks={shown} sw={sw} />
+        </svg>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
