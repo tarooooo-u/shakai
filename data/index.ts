@@ -11,6 +11,14 @@ import type { Sheet } from "@/lib/sheets";
 // content/kanji/words.csv から scripts/build-kanji.mjs が生成する
 import kanjiData from "./kanji.generated.json";
 import type { KanjiWord } from "@/lib/kanji";
+// content/seigo/statements.csv から scripts/build-seigo.mjs が生成する
+import seigoData from "./seigo.generated.json";
+import type { SeigoStatement } from "@/lib/seigo";
+
+// 正誤ドリルの文
+export const SEIGO = seigoData as SeigoStatement[];
+
+export const SEIGO_BY_ID = new Map(SEIGO.map((s) => [s.id, s]));
 
 // 漢字ドリルの語句
 export const KANJI_WORDS = kanjiData.words as KanjiWord[];

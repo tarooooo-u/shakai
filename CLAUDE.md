@@ -25,6 +25,7 @@
 - 白地図ドリル（1枚の地図に山脈の線・火山の▲を並べて答える）は `content/maps/places.csv`・`sets.csv`。書式は `content/README.md`。記録は「地名＠答え方」（例 `p0004@pick`）ごと
 - 漢字ドリル（まちがえやすい字のある語句を「どっち？」と手書きで練習）は `content/kanji/words.csv`。書式は `content/README.md`。記録は「語句id@答え方」（例 `k0001@write`）ごと。答えに語句が入った問題とは `scripts/build-kanji.mjs` が自動でつなぐ
   - 誤字は実際によくあるまちがいだけにし、正しい書き方としても使われるもの（下克上・木曾など）は入れない。問題を足したら、答えの語句で書きまちがえやすいものを words.csv にも足す
+- 正誤ドリル（入試の「X・Yの正誤の組合せ」。誤りの文はどの語句がまちがいかもタップで答える）は `content/seigo/statements.csv`。書式は `content/README.md`。記録は「文id@seigo」（例 `s0001@seigo`）ごと。サイドバーの「入試の形」に置く（記述の練習などもここに足す）
 - ロードマップと課題は `docs/社会学習roadmap.xlsx`
 - UI文言は小学生が読める日本語で。難易度名に実在の学校名を使わない（「最難関」）
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KANJI_BY_ID, KANJI_WORDS, MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUESTION_BY_ID, SHEETS } from "@/data";
+import { KANJI_BY_ID, KANJI_WORDS, MAP_SETS, PLACES, PLACE_BY_ID, QUESTIONS, QUESTION_BY_ID, SEIGO, SEIGO_BY_ID, SHEETS } from "@/data";
 import { kanjiChoices, kanjiKey, kanjiTargets, type KanjiField, type KanjiMode, type KanjiRun } from "@/lib/kanji";
 import { useFavorites } from "@/lib/favorites";
+import { seigoKey, seigoTargets, seigoVersions, sentence, swapOf, type SeigoRun } from "@/lib/seigo";
 import { filterSet, placeChoices, recordKey, runTargets, type KindGroup, type MapMode, type MapRun } from "@/lib/mapSets";
 import { isGraduated, needsReview, useProgress } from "@/lib/progress";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
@@ -22,6 +23,8 @@ import Credits from "./Credits";
 import Dashboard from "./Dashboard";
 import KanjiPage from "./KanjiPage";
 import KanjiQuiz from "./KanjiQuiz";
+import SeigoPage from "./SeigoPage";
+import SeigoQuiz from "./SeigoQuiz";
 import MapSetQuiz from "./MapSetQuiz";
 import MapSetsPage from "./MapSetsPage";
 import SheetView from "./SheetView";
@@ -47,6 +50,8 @@ type Overlay =
   | { kind: "mapresult"; run: MapRun; results: Record<string, Grade> }
   | { kind: "kanjiquiz"; run: KanjiRun }
   | { kind: "kanjiresult"; run: KanjiRun; results: Record<string, Grade> }
+  | { kind: "seigoquiz"; run: SeigoRun }
+  | { kind: "seigoresult"; run: SeigoRun; results: Record<string, Grade> }
   | { kind: "sheet"; id: string };
 
 const ALL_UNITS = Object.values(UNITS).flat();
@@ -129,6 +134,20 @@ function Main({ profile }: { profile: Profile }) {
     setRunKey((k) => k + 1);
     show({ kind: "kanjiquiz", run: { mode, targets, choices, graduatedBefore } });
   };
+  // 正誤ドリル。onlyIds があればその文だけ（結果画面の「もう一度」）
+  const startSeigo = (field: Category | "all", count: number, onlyIds?: string[]) => {
+    const list = SEIGO.filter((s) => field === "all" || s.field === field);
+    let targets = onlyIds ? shuffle(onlyIds) : seigoTargets(list, progress, count);
+    // もう一度で文が1つだけなら、同じ分野からもう1つ足して組にする
+    if (targets.length % 2) {
+      const extra = shuffle(SEIGO.filter((s) => !targets.includes(s.id) && s.field === SEIGO_BY_ID.get(targets[0])!.field))[0] ?? SEIGO.find((s) => !targets.includes(s.id));
+      targets = extra ? [...targets, extra.id] : targets.slice(0, -1);
+    }
+    if (targets.length === 0) return;
+    const graduatedBefore = targets.filter((id) => isGraduated(progress[seigoKey(id)]));
+    setRunKey((k) => k + 1);
+    show({ kind: "seigoquiz", run: { targets, wrong: seigoVersions(targets), graduatedBefore } });
+  };
   // ダッシュボードで単元をタップ：その単元の卒業していない問題（全部卒業なら全部）を、ホームで前に選んだ難易度・問題数・解き方で
   const startUnit = (category: Category, unit: string) => {
     const last = loadLastFilter() ?? DEFAULT_FILTER;
@@ -142,7 +161,7 @@ function Main({ profile }: { profile: Profile }) {
   const openList = (title: string, ids: string[]) => show({ kind: "list", title, ids });
   const back = () => show(null);
   // 演習中（問題・白地図ドリル・漢字ドリル）はメニューをしまう
-  const focus = overlay?.kind === "quiz" || overlay?.kind === "mapquiz" || overlay?.kind === "kanjiquiz";
+  const focus = overlay?.kind === "quiz" || overlay?.kind === "mapquiz" || overlay?.kind === "kanjiquiz" || overlay?.kind === "seigoquiz";
 
   const content = (() => {
     if (overlay?.kind === "quiz") {
@@ -234,6 +253,38 @@ function Main({ profile }: { profile: Profile }) {
         />
       );
     }
+    if (overlay?.kind === "seigoquiz") {
+      const { run } = overlay;
+      return (
+        <SeigoQuiz
+          key={runKey}
+          run={run}
+          onFinish={(results) => {
+            const answered = run.targets.filter((id) => results[id]);
+            if (answered.length === 0) return back();
+            show({ kind: "seigoresult", run: { ...run, targets: answered }, results });
+          }}
+        />
+      );
+    }
+    if (overlay?.kind === "seigoresult") {
+      const { run, results } = overlay;
+      return (
+        <Result
+          ids={run.targets}
+          results={results}
+          graduated={run.targets.filter((id) => isGraduated(progress[seigoKey(id)]) && !run.graduatedBefore.includes(id))}
+          onRetry={(ids) => startSeigo("all", 0, ids)}
+          onHome={back}
+          onDashboard={() => navigate({ kind: "dashboard" })}
+          describe={(id) => {
+            const s = SEIGO_BY_ID.get(id)!;
+            const swap = swapOf(s);
+            return { question: sentence(s, false), answer: `「${swap.right}」を「${swap.wrong}」に変えた文に注意` };
+          }}
+        />
+      );
+    }
     if (overlay?.kind === "sheet") {
       const sheet = SHEETS.find((s) => s.id === overlay.id);
       if (sheet) return <SheetView key={sheet.id} sheet={sheet} onBack={back} />;
@@ -315,6 +366,8 @@ function Main({ profile }: { profile: Profile }) {
         return <MapSetsPage progress={progress} onStart={startMap} />;
       case "kanji":
         return <KanjiPage progress={progress} onStart={startKanji} />;
+      case "seigo":
+        return <SeigoPage progress={progress} onStart={startSeigo} />;
       case "sheets":
         return <SheetsPage onOpen={(id) => show({ kind: "sheet", id })} />;
       case "credits":
