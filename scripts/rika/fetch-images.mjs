@@ -78,6 +78,52 @@ export const SUBJECTS = [
   { name: "サザンカ", slug: "sazanka", file: "Flowers of Camellia sasanqua 20171106.jpg", kind: "花" },
   { name: "ウメ", slug: "ume", wiki: "ウメ", kind: "花" },
   { name: "ヤツデ", slug: "yatsude", wiki: "ヤツデ", kind: "花" },
+  // ---- 鳥（夏鳥・冬鳥の追加）
+  { name: "キビタキ", slug: "kibitaki", wiki: "キビタキ", kind: "鳥" },
+  { name: "オオヨシキリ", slug: "ooyoshikiri", wiki: "オオヨシキリ", kind: "鳥" },
+  { name: "ジョウビタキ", slug: "joubitaki", file: "Phoenicurus auroreus (male).JPG", kind: "鳥" },
+  { name: "ユリカモメ", slug: "yurikamome", wiki: "ユリカモメ", kind: "鳥" },
+  { name: "オナガガモ", slug: "onagagamo", wiki: "オナガガモ", kind: "鳥" },
+  { name: "ナベヅル", slug: "nabezuru", wiki: "ナベヅル", kind: "鳥" },
+  // ---- 鳥（留鳥）
+  { name: "スズメ", slug: "suzume", wiki: "スズメ", kind: "鳥" },
+  { name: "ムクドリ", slug: "mukudori", wiki: "ムクドリ", kind: "鳥" },
+  { name: "シジュウカラ", slug: "shijukara", wiki: "シジュウカラ", kind: "鳥" },
+  { name: "キジバト", slug: "kijibato", wiki: "キジバト", kind: "鳥" },
+  // ---- 両生類・は虫類
+  { name: "アマガエル", slug: "amagaeru", wiki: "ニホンアマガエル", kind: "両生類" },
+  { name: "トノサマガエル", slug: "tonosamagaeru", wiki: "トノサマガエル", kind: "両生類" },
+  { name: "ヒキガエル", slug: "hikigaeru", file: "Bufo japonicus formosus s15.jpg", kind: "両生類" },
+  { name: "ウシガエル", slug: "ushigaeru", wiki: "ウシガエル", kind: "両生類" },
+  { name: "モリアオガエル", slug: "moriaogaeru", wiki: "モリアオガエル", kind: "両生類" },
+  { name: "イモリ", slug: "imori", file: "Cynops pyrrhogaster (under s4).jpg", kind: "両生類" },
+  { name: "オオサンショウウオ", slug: "oosanshouo", wiki: "オオサンショウウオ", kind: "両生類" },
+  { name: "ヤモリ", slug: "yamori", wiki: "ニホンヤモリ", kind: "は虫類" },
+  { name: "トカゲ", slug: "tokage", wiki: "ニホントカゲ", kind: "は虫類" },
+  { name: "カナヘビ", slug: "kanahebi", wiki: "ニホンカナヘビ", kind: "は虫類" },
+  // ---- こん虫となかま
+  { name: "カブトムシ", slug: "kabutomushi", wiki: "カブトムシ", kind: "こん虫" },
+  { name: "モンシロチョウ", slug: "monshirocho", file: "Pieris rapae edit2.jpg", kind: "こん虫" },
+  { name: "ナナホシテントウ", slug: "nanahoshitento", wiki: "ナナホシテントウ", kind: "こん虫" },
+  { name: "トノサマバッタ", slug: "tonosamabatta", wiki: "トノサマバッタ", kind: "こん虫" },
+  { name: "カマキリ", slug: "ookamakiri", wiki: "オオカマキリ", kind: "こん虫" },
+  { name: "アブラゼミ", slug: "aburazemi", wiki: "アブラゼミ", kind: "こん虫" },
+  { name: "シオカラトンボ", slug: "shiokaratonbo", file: "Orthetrum albistylum speciosum (male).JPG", kind: "こん虫" },
+  { name: "ジョロウグモ", slug: "jorogumo", file: "Trichonephila clavata in Hamada, Shimane 01.jpg", kind: "クモ" },
+  { name: "ダンゴムシ", slug: "dangomushi", wiki: "オカダンゴムシ", kind: "甲殻類" },
+  // ---- 水中の小さな生物（けんび鏡）
+  { name: "ミジンコ", slug: "mijinko", wiki: "ミジンコ", kind: "小さな生物" },
+  { name: "ゾウリムシ", slug: "zourimushi", wiki: "ゾウリムシ", kind: "小さな生物" },
+  { name: "ミドリムシ", slug: "midorimushi", wiki: "ミドリムシ", kind: "小さな生物" },
+  { name: "ボルボックス", slug: "volvox", wiki: "ボルボックス", kind: "小さな生物" },
+  { name: "ミカヅキモ", slug: "mikazukimo", wiki: "ミカヅキモ", kind: "小さな生物" },
+  { name: "アオミドロ", slug: "aomidoro", wiki: "アオミドロ", kind: "小さな生物" },
+  // ---- 種子をつくらない植物・裸子植物
+  { name: "ゼニゴケ", slug: "zenigoke", wiki: "ゼニゴケ", kind: "植物" },
+  { name: "スギゴケ", slug: "sugigoke", wiki: "スギゴケ", kind: "植物" },
+  { name: "ワラビ", slug: "warabi", file: "Adelaarsvaren plant Pteridium aquilinum.jpg", kind: "植物" },
+  { name: "ツクシ", slug: "tsukushi", file: "Equisetum arvense - fertile stem.jpg", kind: "植物" },
+  { name: "イチョウ", slug: "icho", wiki: "イチョウ", kind: "植物" },
 ];
 
 const OK_LICENSE = /^(public domain|pd|cc0|cc by(-sa)? \d(\.\d)?|cc by(-sa)?)/i;
