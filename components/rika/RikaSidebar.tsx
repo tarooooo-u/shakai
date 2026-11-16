@@ -1,6 +1,6 @@
 "use client";
 
-import { RIKA_QUESTIONS } from "@/data/rika";
+import { RIKA_QUESTIONS, RIKA_SHEETS } from "@/data/rika";
 import { createLocalStore } from "@/lib/localStore";
 import { leaveProfile, type Profile } from "@/lib/profiles";
 import { needsReview, type Progress } from "@/lib/progress";
@@ -15,6 +15,8 @@ export type RikaPage =
   | { kind: "dashboard" }
   | { kind: "review" }
   | { kind: "category"; category: RikaCategory }
+  | { kind: "sheets" }
+  | { kind: "sheet"; id: string }
   | { kind: "credits" };
 
 const CATEGORY_COUNT = Object.fromEntries(
@@ -24,8 +26,11 @@ const CATEGORY_COUNT = Object.fromEntries(
 // PC で「アイコンだけ」に縮めた状態（社会とは別に覚える）
 const collapsedStore = createLocalStore<boolean>("rika-drill:sidebar-collapsed:v1", false);
 
-const samePage = (a: RikaPage, b: RikaPage) =>
-  a.kind === b.kind && (a.kind !== "category" || a.category === (b as typeof a).category);
+// 1枚のデータシートを開いているときは「データ」を選んでいることにする
+const samePage = (a: RikaPage, b: RikaPage) => {
+  const kind = (p: RikaPage) => (p.kind === "sheet" ? "sheets" : p.kind);
+  return kind(a) === kind(b) && (a.kind !== "category" || a.category === (b as typeof a).category);
+};
 
 type NavProps = { page: RikaPage; collapsed: boolean; onNavigate: (page: RikaPage) => void };
 
@@ -134,6 +139,9 @@ export default function RikaSidebar({
       {RIKA_CATEGORIES.map((c) => (
         <Item {...nav} key={c} to={{ kind: "category", category: c }} mark={RIKA_CATEGORY_MARK[c]} label={RIKA_CATEGORY_LABEL[c]} count={CATEGORY_COUNT[c]} />
       ))}
+
+      <Heading collapsed={collapsed}>見て覚える</Heading>
+      <Item {...nav} to={{ kind: "sheets" }} mark="表" label="データ" count={RIKA_SHEETS.length} />
 
       <Heading collapsed={collapsed}>おうちの人</Heading>
       <Item {...nav} to={{ kind: "credits" }} mark="©" label="画像・データの出典" />

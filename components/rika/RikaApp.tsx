@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RIKA_IMAGES, RIKA_QUESTION_BY_ID, RIKA_QUESTIONS } from "@/data/rika";
+import { RIKA_IMAGES, RIKA_QUESTION_BY_ID, RIKA_QUESTIONS, RIKA_SHEET_BY_ID, RIKA_SHEETS } from "@/data/rika";
 import { createLocalStore } from "@/lib/localStore";
 import { leaveProfile, useCurrentProfile, useHydrated, type Profile } from "@/lib/profiles";
 import { isGraduated, needsReview, statusOf, type Progress } from "@/lib/progress";
@@ -24,6 +24,7 @@ import SubjectSwitch, { useSubjectGuard } from "../SubjectSwitch";
 import { Section, SmallChip } from "../ui";
 import RikaQuiz from "./RikaQuiz";
 import RikaResult from "./RikaResult";
+import { RikaSheetView, RikaSheetsPage } from "./RikaSheets";
 import RikaSidebar, { type RikaPage } from "./RikaSidebar";
 
 /** 解き方（カード・4択）と1回の問題数。この端末で覚える */
@@ -114,6 +115,13 @@ function Main({ profile }: { profile: Profile }) {
         return <Review progress={progress} setting={setting} onStart={start} />;
       case "category":
         return <CategoryPage key={page.category} category={page.category} progress={progress} setting={setting} onStart={startUnit} />;
+      case "sheets":
+        return <RikaSheetsPage onOpen={(id) => navigate({ kind: "sheet", id })} />;
+      case "sheet": {
+        const sheet = RIKA_SHEET_BY_ID.get(page.id);
+        if (!sheet) return null;
+        return <RikaSheetView key={sheet.id} sheet={sheet} onBack={() => navigate({ kind: "sheets" })} />;
+      }
       case "credits":
         return <Credits />;
     }
@@ -410,6 +418,18 @@ function Credits() {
                     </a>
                   </div>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {RIKA_SHEETS.length > 0 && (
+        <Section title={`データ（${RIKA_SHEETS.length}枚）`}>
+          <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+            {RIKA_SHEETS.map((s) => (
+              <li key={s.id} className="px-3 py-2 text-xs">
+                <div className="text-sm font-bold">{s.title}</div>
+                <div className="text-muted">{s.source}</div>
               </li>
             ))}
           </ul>

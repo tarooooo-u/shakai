@@ -124,6 +124,62 @@ export const SUBJECTS = [
   { name: "ワラビ", slug: "warabi", file: "Adelaarsvaren plant Pteridium aquilinum.jpg", kind: "植物" },
   { name: "ツクシ", slug: "tsukushi", file: "Equisetum arvense - fertile stem.jpg", kind: "植物" },
   { name: "イチョウ", slug: "icho", wiki: "イチョウ", kind: "植物" },
+  // ---- 秋に鳴く虫・夏の虫
+  { name: "スズムシ", slug: "suzumushi", file: "Meloimorpha japonica on the floor - 4.jpg", kind: "こん虫" },
+  { name: "エンマコオロギ", slug: "enmakorogi", wiki: "エンマコオロギ", kind: "こん虫" },
+  { name: "キリギリス", slug: "kirigirisu", wiki: "キリギリス", kind: "こん虫" },
+  { name: "マツムシ", slug: "matsumushi", wiki: "マツムシ", kind: "こん虫" },
+  { name: "クツワムシ", slug: "kutsuwamushi", file: "Mecopoda nipponensis 01.jpg", kind: "こん虫" },
+  { name: "ゲンジボタル", slug: "genjibotaru", wiki: "ゲンジボタル", kind: "こん虫" },
+  // ---- 種子の運ばれ方・どんぐり
+  { name: "オナモミ", slug: "onamomi", wiki: "オナモミ", kind: "植物" },
+  { name: "カエデ", slug: "kaede-mi", file: "Samara maple.jpg", kind: "植物" },
+  { name: "クヌギ", slug: "kunugi", file: "Quercus acutissima nuts 02 by Line1.JPG", kind: "植物" },
+  // ---- 岩石・鉱物
+  { name: "花こう岩", slug: "kakougan", wiki: "花崗岩", kind: "岩石" },
+  { name: "せん緑岩", slug: "senryokugan", wiki: "閃緑岩", kind: "岩石" },
+  { name: "斑れい岩", slug: "hanreigan", wiki: "斑れい岩", kind: "岩石" },
+  { name: "流紋岩", slug: "ryumongan", wiki: "流紋岩", kind: "岩石" },
+  { name: "安山岩", slug: "anzangan", file: "Hornblende andesite (GeoDIL number - 91).jpg", kind: "岩石" },
+  { name: "玄武岩", slug: "genbugan", wiki: "玄武岩", kind: "岩石" },
+  { name: "れき岩", slug: "rekigan", wiki: "礫岩", kind: "岩石" },
+  { name: "砂岩", slug: "sagan", wiki: "砂岩", kind: "岩石" },
+  { name: "泥岩", slug: "deigan", file: "Mudstone (Graneros Formation, Upper Cretaceous; Ponca State Park, Nebraska, USA).jpg", kind: "岩石" },
+  { name: "凝灰岩", slug: "gyokaigan", wiki: "凝灰岩", kind: "岩石" },
+  { name: "石灰岩", slug: "sekkaigan", wiki: "石灰岩", kind: "岩石" },
+  { name: "チャート", slug: "chert", wiki: "チャート (岩石)", kind: "岩石" },
+  { name: "大理石", slug: "dairiseki", wiki: "大理石", kind: "岩石" },
+  { name: "セキエイ", slug: "sekiei", wiki: "石英", kind: "鉱物" },
+  { name: "チョウセキ", slug: "chouseki", file: "Orthoclase (GeoDIL number - 2912).jpg", kind: "鉱物" },
+  { name: "クロウンモ", slug: "kurounmo", file: "Biotite mica 1 (32075636786).jpg", kind: "鉱物" },
+  // ---- 化石
+  { name: "サンヨウチュウ", slug: "sanyouchu", wiki: "三葉虫", kind: "化石" },
+  { name: "アンモナイト", slug: "ammonite", wiki: "アンモナイト", kind: "化石" },
+  { name: "フズリナ", slug: "fusulina", wiki: "フズリナ", kind: "化石" },
+  { name: "ビカリア", slug: "vicarya", wiki: "ビカリア", kind: "化石" },
+  { name: "ナウマンゾウ", slug: "naumanzou", file: "Palaeoloxodon naumanni Hokkaido Museum collection.jpg", kind: "化石" },
+  // ---- 火山・噴出物
+  { name: "昭和新山", slug: "showashinzan", wiki: "昭和新山", kind: "火山" },
+  { name: "富士山", slug: "fujisan", wiki: "富士山", kind: "火山" },
+  { name: "桜島", slug: "sakurajima", file: "Kagoshima and Sakurajima.jpg", kind: "火山" },
+  { name: "平成新山", slug: "heiseishinzan", wiki: "平成新山", kind: "火山" },
+  { name: "マウナロア", slug: "maunaloa", wiki: "マウナ・ロア", kind: "火山" },
+  { name: "火山弾", slug: "kazandan", wiki: "火山弾", kind: "火山" },
+  { name: "軽石", slug: "karuishi", wiki: "軽石", kind: "火山" },
+  // ---- 川がつくる地形
+  { name: "V字谷", slug: "vjikoku", file: "Kurobe Gorge in autumn.jpg", kind: "地形" },
+  { name: "三角州", slug: "sankakusu", wiki: "三角州", kind: "地形" },
+  // ---- 雲
+  { name: "巻雲", slug: "kenun", wiki: "巻雲", kind: "雲" },
+  { name: "巻積雲", slug: "kensekiun", wiki: "巻積雲", kind: "雲" },
+  { name: "高積雲", slug: "kousekiun", wiki: "高積雲", kind: "雲" },
+  { name: "高層雲", slug: "kousouun", wiki: "高層雲", kind: "雲" },
+  { name: "乱層雲", slug: "ransouun", wiki: "乱層雲", kind: "雲" },
+  { name: "積雲", slug: "sekiun", wiki: "積雲", kind: "雲" },
+  { name: "積乱雲", slug: "sekiranun", wiki: "積乱雲", kind: "雲" },
+  // ---- 星座
+  { name: "オリオン座", slug: "orion", file: "Orion constellation photo.jpg", kind: "星座" },
+  { name: "プレアデス星団", slug: "pleiades", wiki: "プレアデス星団", kind: "星座" },
 ];
 
 const OK_LICENSE = /^(public domain|pd|cc0|cc by(-sa)? \d(\.\d)?|cc by(-sa)?)/i;
