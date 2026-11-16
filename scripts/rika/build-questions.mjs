@@ -111,6 +111,8 @@ for (const name of readdirSync(DIR).filter((f) => f.endsWith(".csv")).sort()) {
     if (choices.includes(r.答え)) err("誤答選択肢に答えが入っています");
     const choiceOnly = r.出題形式 === "4択のみ";
     if (r.出題形式 && !choiceOnly) err("出題形式は「4択のみ」か空欄");
+    // 写真を使う問題は「写真・絵で答える」（タグ 写真）に集める
+    if ((image || images || imageChoices) && !list(r.タグ).includes("写真")) err("写真を使う問題は、タグに「写真」を入れる（「写真・絵で答える」に出すため）");
     if (!choiceOnly && !imageChoices && NEEDS_CHOICES.test(r.問題)) warnings.push(`${name}:${info.lines} [${r.id}] 選択肢がないと答えられない問題は、出題形式を「4択のみ」にする`);
 
     questions.push({

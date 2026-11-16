@@ -25,7 +25,7 @@ import { Section, SmallChip } from "../ui";
 import RikaQuiz from "./RikaQuiz";
 import RikaResult from "./RikaResult";
 import { RikaSheetView, RikaSheetsPage } from "./RikaSheets";
-import RikaSidebar, { type RikaPage } from "./RikaSidebar";
+import RikaSidebar, { RIKA_THEMES, type RikaPage } from "./RikaSidebar";
 
 /** 解き方（カード・4択）と1回の問題数。この端末で覚える */
 type QuizSetting = { style: RikaStyle; count: RikaCount };
@@ -115,6 +115,11 @@ function Main({ profile }: { profile: Profile }) {
         return <Review progress={progress} setting={setting} onStart={start} />;
       case "category":
         return <CategoryPage key={page.category} category={page.category} progress={progress} setting={setting} onStart={startUnit} />;
+      case "theme": {
+        const theme = RIKA_THEMES.find((t) => t.tag === page.tag);
+        if (!theme) return null;
+        return <ThemePage key={theme.tag} label={theme.label} tag={theme.tag} progress={progress} setting={setting} onStart={start} />;
+      }
       case "sheets":
         return <RikaSheetsPage onOpen={(id) => navigate({ kind: "sheet", id })} />;
       case "sheet": {
@@ -266,21 +271,28 @@ function SettingPicker({ setting, hint = true }: { setting: QuizSetting; hint?: 
 /** 単元ごとの問題数と卒業数（小見出しごと）。問題がある単元は押すと始まる */
 function UnitGroups({
   category,
+  tag,
   progress,
   onStart,
 }: {
   category: RikaCategory;
+  /** テーマのページ：このタグの問題だけを数える（問題がない単元は出さない） */
+  tag?: string;
   progress: Progress;
   onStart: (category: RikaCategory, unit: string) => void;
 }) {
+  const inUnit = (u: string) => RIKA_QUESTIONS.filter((q) => q.category === category && q.unit === u && (!tag || q.tags.includes(tag)));
+  const groups = RIKA_UNIT_GROUPS[category]
+    .map((g) => ({ ...g, units: tag ? g.units.filter((u) => inUnit(u).length > 0) : g.units }))
+    .filter((g) => g.units.length > 0);
   return (
     <div className="space-y-4">
-      {RIKA_UNIT_GROUPS[category].map((g) => (
+      {groups.map((g) => (
         <div key={g.label} className="space-y-1.5">
           <h3 className="text-xs font-bold text-muted">{g.label}</h3>
           <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
             {g.units.map((u) => {
-              const c = countOf(RIKA_QUESTIONS.filter((q) => q.category === category && q.unit === u), progress);
+              const c = countOf(inUnit(u), progress);
               const rate = c.total ? c.graduated / c.total : 0;
               const row = (
                 <>
@@ -354,6 +366,55 @@ function CategoryPage({ category, progress, setting, onStart }: { category: Rika
       </header>
       {c.total === 0 ? <Empty>この分野の問題は、まだありません。</Empty> : <SettingPicker setting={setting} />}
       <UnitGroups category={category} progress={progress} onStart={onStart} />
+    </div>
+  );
+}
+
+/** テーマ（写真・絵で答える など）：分野をまたいで、タグのついた問題を単元ごとに出す */
+function ThemePage({
+  label,
+  tag,
+  progress,
+  setting,
+  onStart,
+}: {
+  label: string;
+  tag: string;
+  progress: Progress;
+  setting: QuizSetting;
+  onStart: (ids: string[]) => void;
+}) {
+  const all = RIKA_QUESTIONS.filter((q) => q.tags.includes(tag));
+  const c = countOf(all, progress);
+  const startUnit = (category: RikaCategory, unit: string) =>
+    onStart(pickRikaQuestions(all.filter((q) => q.category === category && q.unit === unit), progress, setting.count));
+  return (
+    <div className="space-y-6">
+      <header>
+        <p className="text-sm text-muted">テーマ</p>
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h1 className="text-2xl font-bold">{label}</h1>
+          <span className="text-sm text-muted">
+            {c.total}問 ／ 卒業 {c.graduated}　要復習 {c.review}
+          </span>
+        </div>
+      </header>
+      <SettingPicker setting={setting} hint={false} />
+      <button
+        type="button"
+        onClick={() => onStart(pickRikaQuestions(all, progress, setting.count))}
+        className="min-h-14 w-full rounded-2xl bg-accent px-5 text-left text-accent-ink transition-opacity hover:opacity-90"
+      >
+        <div className="text-base font-bold">ぜんぶの単元から{setting.count > 0 ? `${Math.min(setting.count, all.length)}問` : "全部"}</div>
+        <div className="text-xs opacity-80">卒業していない問題からランダム。下の単元を押すと、その単元だけ出します</div>
+      </button>
+      {RIKA_CATEGORIES.map((cat) =>
+        all.some((q) => q.category === cat) ? (
+          <Section key={cat} title={RIKA_CATEGORY_LABEL[cat]}>
+            <UnitGroups category={cat} tag={tag} progress={progress} onStart={startUnit} />
+          </Section>
+        ) : null,
+      )}
     </div>
   );
 }

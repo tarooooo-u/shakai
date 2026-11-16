@@ -180,6 +180,18 @@ export const SUBJECTS = [
   // ---- 星座
   { name: "オリオン座", slug: "orion", file: "Orion constellation photo.jpg", kind: "星座" },
   { name: "プレアデス星団", slug: "pleiades", wiki: "プレアデス星団", kind: "星座" },
+  // ---- 化学：実験器具・結晶など
+  { name: "ガスバーナー", slug: "gasburner", wiki: "ブンゼンバーナー", kind: "実験器具" },
+  { name: "アルコールランプ", slug: "alcohollamp", file: "Alcohol burner1.jpg", kind: "実験器具" },
+  { name: "メスシリンダー", slug: "messcylinder", file: "Glass graduated cylinder-250ml 1.jpg", kind: "実験器具" },
+  { name: "上皿てんびん", slug: "uwazaratenbin", wiki: "上皿天秤", kind: "実験器具" },
+  { name: "三角フラスコ", slug: "erlenmeyer", wiki: "三角フラスコ", kind: "実験器具" },
+  { name: "ろうと", slug: "routo", file: "Small glass funnel.jpg", kind: "実験器具" }, // 元の写真がさかさまなので、取ったあと上下を反転した
+  { name: "食塩の結晶", slug: "shokuen-kessho", file: "Halite crystals (four).jpg", kind: "結晶" },
+  { name: "ミョウバンの結晶", slug: "myouban-kessho", wiki: "ミョウバン", kind: "結晶" },
+  { name: "硫酸銅の結晶", slug: "ryusando-kessho", file: "Copper sulfate pentahydrate crystals.jpg", kind: "結晶" },
+  { name: "ろうそくの炎", slug: "rousoku", file: "Candle flame closeup.jpg", kind: "燃焼" },
+  { name: "ドライアイス", slug: "dryice", wiki: "ドライアイス", kind: "物質" },
 ];
 
 const OK_LICENSE = /^(public domain|pd|cc0|cc by(-sa)? \d(\.\d)?|cc by(-sa)?)/i;

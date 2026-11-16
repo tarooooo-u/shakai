@@ -15,9 +15,15 @@ export type RikaPage =
   | { kind: "dashboard" }
   | { kind: "review" }
   | { kind: "category"; category: RikaCategory }
+  | { kind: "theme"; tag: string }
   | { kind: "sheets" }
   | { kind: "sheet"; id: string }
   | { kind: "credits" };
+
+/** テーマ：タグで分野をまたいで問題を集める（社会の「テーマ」と同じ。問題が1つもないテーマは出さない） */
+export const RIKA_THEMES = [{ tag: "写真", label: "写真・絵で答える", mark: "写" }].filter((t) => RIKA_QUESTIONS.some((q) => q.tags.includes(t.tag)));
+
+const THEME_COUNT = Object.fromEntries(RIKA_THEMES.map((t) => [t.tag, RIKA_QUESTIONS.filter((q) => q.tags.includes(t.tag)).length]));
 
 const CATEGORY_COUNT = Object.fromEntries(
   RIKA_CATEGORIES.map((c) => [c, RIKA_QUESTIONS.filter((q) => q.category === c).length]),
@@ -29,7 +35,11 @@ const collapsedStore = createLocalStore<boolean>("rika-drill:sidebar-collapsed:v
 // 1枚のデータシートを開いているときは「データ」を選んでいることにする
 const samePage = (a: RikaPage, b: RikaPage) => {
   const kind = (p: RikaPage) => (p.kind === "sheet" ? "sheets" : p.kind);
-  return kind(a) === kind(b) && (a.kind !== "category" || a.category === (b as typeof a).category);
+  return (
+    kind(a) === kind(b) &&
+    (a.kind !== "category" || a.category === (b as typeof a).category) &&
+    (a.kind !== "theme" || a.tag === (b as typeof a).tag)
+  );
 };
 
 type NavProps = { page: RikaPage; collapsed: boolean; onNavigate: (page: RikaPage) => void };
@@ -138,6 +148,11 @@ export default function RikaSidebar({
       <Heading collapsed={collapsed}>分野</Heading>
       {RIKA_CATEGORIES.map((c) => (
         <Item {...nav} key={c} to={{ kind: "category", category: c }} mark={RIKA_CATEGORY_MARK[c]} label={RIKA_CATEGORY_LABEL[c]} count={CATEGORY_COUNT[c]} />
+      ))}
+
+      {RIKA_THEMES.length > 0 && <Heading collapsed={collapsed}>テーマ</Heading>}
+      {RIKA_THEMES.map((t) => (
+        <Item {...nav} key={t.tag} to={{ kind: "theme", tag: t.tag }} mark={t.mark} label={t.label} count={THEME_COUNT[t.tag]} />
       ))}
 
       <Heading collapsed={collapsed}>見て覚える</Heading>
